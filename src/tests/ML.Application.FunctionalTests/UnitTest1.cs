@@ -1,4 +1,4 @@
-﻿namespace Application.FunctionalTests;
+﻿namespace ML.Application.FunctionalTests;
 
 public class Tests
 {
