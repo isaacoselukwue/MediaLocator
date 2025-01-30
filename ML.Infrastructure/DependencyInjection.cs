@@ -24,15 +24,7 @@ public static class DependencyInjection
         builder.Services.AddDbContextPool<MLDbContext>((sp, options) =>
         {
             options.AddInterceptors(sp.GetServices<ISaveChangesInterceptor>());
-            options.UseNpgsql(connectionString,
-                npgsqlOptions =>
-                {
-                    npgsqlOptions.EnableRetryOnFailure(
-                        maxRetryCount: 5,
-                        maxRetryDelay: TimeSpan.FromSeconds(10),
-                        errorCodesToAdd: null
-                        );
-                });
+
         });
 
         builder.Services.AddIdentityCore<Users>(
