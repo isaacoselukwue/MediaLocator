@@ -1,4 +1,6 @@
-﻿namespace ML.Api.Filters;
+﻿using System.Diagnostics;
+
+namespace ML.Api.Filters;
 
 public class CustomResponseHeaderMiddleware(RequestDelegate next)
 {
@@ -14,6 +16,7 @@ public class CustomResponseHeaderMiddleware(RequestDelegate next)
             httpContext.Response.Headers.Append("X-Frame-Options", "SAMEORIGIN");
             httpContext.Response.Headers.Append("X-Content-Security-Policy", "default-src 'self'; object-src 'none'; frame-ancestors 'none'; sandbox allow-forms allow-same-origin allow-scripts; base-uri 'self';");
             httpContext.Response.Headers.Append("Referrer-Policy", "no-referrer");
+            httpContext.Response.Headers.Append("RequestId", Activity.Current?.TraceId.ToString());
             httpContext.Response.Headers.Remove("X-Powered-By");
             httpContext.Response.Headers.Remove("Server");
             httpContext.Response.Headers.Remove("server");
