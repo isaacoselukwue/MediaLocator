@@ -26,6 +26,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ML.Domain", "src\main\ML.Do
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ML.Infrastructure", "src\main\ML.Infrastructure\ML.Infrastructure.csproj", "{5BFDDD13-894A-4155-9697-66CA0B6FFE18}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ML.Service", "ML.Service\ML.Service.csproj", "{7C5DC513-5835-4293-ACD1-CBADA2A78881}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -52,6 +54,10 @@ Global
 		{5BFDDD13-894A-4155-9697-66CA0B6FFE18}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5BFDDD13-894A-4155-9697-66CA0B6FFE18}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5BFDDD13-894A-4155-9697-66CA0B6FFE18}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7C5DC513-5835-4293-ACD1-CBADA2A78881}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C5DC513-5835-4293-ACD1-CBADA2A78881}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C5DC513-5835-4293-ACD1-CBADA2A78881}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C5DC513-5835-4293-ACD1-CBADA2A78881}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -64,5 +70,6 @@ Global
 		{5C908C45-4EF6-4C3E-BC7A-11B0E4E18E70} = {AB2711AA-7474-4AB4-8503-65489ACF033D}
 		{294E4BE3-6FEA-48BF-AC83-C484A8440687} = {AB2711AA-7474-4AB4-8503-65489ACF033D}
 		{5BFDDD13-894A-4155-9697-66CA0B6FFE18} = {AB2711AA-7474-4AB4-8503-65489ACF033D}
+		{7C5DC513-5835-4293-ACD1-CBADA2A78881} = {AB2711AA-7474-4AB4-8503-65489ACF033D}
 	EndGlobalSection
 EndGlobal

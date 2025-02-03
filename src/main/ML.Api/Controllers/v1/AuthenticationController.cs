@@ -5,11 +5,12 @@ using ML.Application.Common.Models;
 
 namespace ML.Api.Controllers.v1;
 [ApiController]
-public class AuthenticationController(IMediator mediator) : BaseController
+public class AuthenticationController(ISender sender) : BaseController
 {
     [HttpPost("login")]
     public  async ValueTask<ActionResult<Result<LoginDto>>> Login([FromBody] LoginCommand command)
     {
-        return Ok(await mediator.Send(command));
+        var result = await sender.Send(command);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 }

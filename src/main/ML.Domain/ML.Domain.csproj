@@ -8,10 +8,10 @@
 
   <ItemGroup>
     <Folder Include="Constants\" />
-    <Folder Include="Events\" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MediatR" Version="12.4.1" />
     <PackageReference Include="Microsoft.Extensions.Identity.Stores" Version="9.0.1" />
   </ItemGroup>
 
