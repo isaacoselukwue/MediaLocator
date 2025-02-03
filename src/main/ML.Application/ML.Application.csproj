@@ -19,4 +19,8 @@
     <Folder Include="Accounts\Queries\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ML.Domain\ML.Domain.csproj" />
+  </ItemGroup>
+
 </Project>
