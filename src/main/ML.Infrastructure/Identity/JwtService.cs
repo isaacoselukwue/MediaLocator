@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 namespace ML.Infrastructure.Identity;
-internal class JwtService(IDataProtectionProvider dataProtectionProvider, JwtSettings jwtSettings)
+internal class JwtService(IDataProtectionProvider dataProtectionProvider, JwtSettings jwtSettings) : IJwtService
 {
     private readonly IDataProtectionProvider _dataProtectionProvider = dataProtectionProvider;
 

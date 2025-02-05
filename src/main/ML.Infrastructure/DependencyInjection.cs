@@ -1,16 +1,15 @@
-﻿using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Http.Resilience;
-using ML.Application.Common.Interfaces;
-using ML.Domain.Entities;
-using ML.Infrastructure.Data;
-using ML.Infrastructure.Data.Interceptors;
-using ML.Infrastructure.Email;
-using ML.Infrastructure.Identity;
-using Polly;
+﻿global using Microsoft.AspNetCore.DataProtection;
+global using Microsoft.AspNetCore.Identity;
+global using Microsoft.Extensions.Configuration;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Hosting;
+global using Microsoft.Extensions.Http.Resilience;
+global using ML.Application.Common.Interfaces;
+global using ML.Infrastructure.Data;
+global using ML.Infrastructure.Data.Interceptors;
+global using ML.Infrastructure.Email;
+global using ML.Infrastructure.Identity;
+global using Polly;
 using Polly.Retry;
 
 namespace ML.Infrastructure;
@@ -100,8 +99,8 @@ public static class DependencyInjection
 
         builder.Services.AddTransient<IIdentityService, IdentityService>();
 
-        builder.Services.AddTransient<IJwtService, JwtService>();
 
         builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+        builder.Services.AddTransient<IJwtService, JwtService>();
     }
 }
