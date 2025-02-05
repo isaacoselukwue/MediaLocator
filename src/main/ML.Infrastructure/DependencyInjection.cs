@@ -54,6 +54,10 @@ public static class DependencyInjection
                 options.Lockout.AllowedForNewUsers = true;
                 options.Lockout.MaxFailedAccessAttempts = 5;
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromHours(24);
+                builder.Services.Configure<PasswordHasherOptions>(options =>
+                {
+                    options.IterationCount = 500000;
+                });
             }
             )
             .AddRoles<UserRoles>()

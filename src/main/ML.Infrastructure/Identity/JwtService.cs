@@ -2,6 +2,7 @@
 using Microsoft.IdentityModel.Tokens;
 using ML.Application.Accounts.Commands.Login;
 using ML.Application.Common.Models;
+using ML.Domain.Constants;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -12,7 +13,7 @@ internal class JwtService(IDataProtectionProvider dataProtectionProvider, JwtSet
 {
     private readonly IDataProtectionProvider _dataProtectionProvider = dataProtectionProvider;
 
-    public Result<LoginDto> GenerateToken(Users users)
+    public Result<LoginDto> GenerateToken(Users user, List<Claim> userClaims, List<string> roles)
     {
         SymmetricSecurityKey key = new(Encoding.ASCII.GetBytes(jwtSettings.Secret!));
         SigningCredentials credentials = new(key, SecurityAlgorithms.HmacSha256);
@@ -20,14 +21,18 @@ internal class JwtService(IDataProtectionProvider dataProtectionProvider, JwtSet
         DateTimeOffset creationDate = DateTimeOffset.UtcNow;
         List<Claim> claims =
         [
-            new Claim(JwtRegisteredClaimNames.Sub, users.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.CreateVersion7().ToString()),
             new Claim(JwtRegisteredClaimNames.Iat, creationDate.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
             new Claim(JwtRegisteredClaimNames.Sid, Guid.CreateVersion7().ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, users.Email ?? ""),
-            new Claim(JwtRegisteredClaimNames.GivenName, users.FirstName ?? ""),
-            new Claim(JwtRegisteredClaimNames.FamilyName, users.LastName ?? "")
+            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? ""),
+            new Claim(JwtRegisteredClaimNames.GivenName, user.FirstName ?? ""),
+            new Claim(JwtRegisteredClaimNames.FamilyName, user.LastName ?? "")
         ];
+        claims.AddRange(userClaims);
+        foreach(string role in roles)
+            claims.Add(new Claim(ClaimTypes.Role, role));
+
         JwtSecurityToken token = new(jwtSettings.Issuer, jwtSettings.Audience, claims, expires: expiry, signingCredentials: credentials);
         LoginDto loginDto = new()
         {
@@ -39,7 +44,7 @@ internal class JwtService(IDataProtectionProvider dataProtectionProvider, JwtSet
             }
         };
 
-        return Result<LoginDto>.Success("Access token generated successfully.", loginDto);
+        return Result<LoginDto>.Success(ResultMessage.AccessTokenGenerated, loginDto);
     }
     private string GenerateProtectedToken()
     {
