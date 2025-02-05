@@ -25,6 +25,6 @@ public class Result<T> : Result
     public T? Data { get; init; }
 
     public static new Result Success(string message) => new(true, message, Array.Empty<string>());
-    public static Result<T> Success(string message, T data) => new(true, message, Array.Empty<string>(), data);
-    public static new Result Failure(string message, IEnumerable<string> errors) => new(false, message, errors);
+    public static Result<T> Success(string message, T data) => new(true, message, [], data);
+    public static new Result<T> Failure(string message, IEnumerable<string> errors) => new(false, message, errors, data: default!);
 }
