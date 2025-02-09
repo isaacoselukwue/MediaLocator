@@ -1,13 +1,15 @@
 ﻿using MailKit.Net.Smtp;
 using MailKit.Security;
+using Microsoft.Extensions.Options;
 using MimeKit;
 using ML.Application.Common.Interfaces;
 using ML.Domain.Enums;
 using ML.Domain.Events;
 
 namespace ML.Infrastructure.Email;
-internal class EmailService(MailSettings mailSettings) : IEmailService
+internal class EmailService(IOptions<MailSettings> mailSettings) : IEmailService
 {
+    private readonly MailSettings mailSettings = mailSettings.Value;
     public async Task SendEmail(NotificationEvent notification, CancellationToken cancellationToken)
     {
         MimeMessage mail = new();

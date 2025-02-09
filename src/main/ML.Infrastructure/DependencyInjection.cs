@@ -10,6 +10,7 @@ global using ML.Infrastructure.Data.Interceptors;
 global using ML.Infrastructure.Email;
 global using ML.Infrastructure.Identity;
 global using Polly;
+using ML.Infrastructure.OpenVerse;
 using Polly.Retry;
 
 namespace ML.Infrastructure;
@@ -70,11 +71,11 @@ public static class DependencyInjection
                         .PersistKeysToDbContext<MLDbContext>()
                         .SetApplicationName("MediaLocatorApplicationService");
 
-        builder.Services.AddHttpClient("OpenApi")
+        builder.Services.AddHttpClient("OpenVerse")
             .ConfigureHttpClient((sp, client) =>
             {
                 var configuration = sp.GetRequiredService<IConfiguration>();
-                client.BaseAddress = new Uri(configuration["OpenApi:BaseAddress"]);
+                client.BaseAddress = new Uri(configuration["OpenVerseSettings:BaseAddress"]!);
             })
             .AddResilienceHandler("retry", pipeline =>
             {
@@ -106,5 +107,8 @@ public static class DependencyInjection
 
         builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
         builder.Services.AddTransient<IJwtService, JwtService>();
+
+        builder.Services.Configure<OpenVerseSettings>(builder.Configuration.GetSection("OpenVerseSettings"));
+        builder.Services.AddTransient<IOpenVerseService, OpenVerseService>();
     }
 }
