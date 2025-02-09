@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ML.Application.Accounts.Commands.Login;
 using ML.Application.Common.Models;
@@ -9,9 +10,10 @@ using System.Security.Cryptography;
 using System.Text;
 
 namespace ML.Infrastructure.Identity;
-internal class JwtService(IDataProtectionProvider dataProtectionProvider, JwtSettings jwtSettings) : IJwtService
+internal class JwtService(IDataProtectionProvider dataProtectionProvider, IOptions<JwtSettings> jwtSettings) : IJwtService
 {
     private readonly IDataProtectionProvider _dataProtectionProvider = dataProtectionProvider;
+    private readonly JwtSettings jwtSettings = jwtSettings.Value;
 
     public Result<LoginDto> GenerateToken(Users user, List<Claim> userClaims, List<string> roles)
     {
@@ -27,11 +29,10 @@ internal class JwtService(IDataProtectionProvider dataProtectionProvider, JwtSet
             new Claim(JwtRegisteredClaimNames.Sid, Guid.CreateVersion7().ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email ?? ""),
             new Claim(JwtRegisteredClaimNames.GivenName, user.FirstName ?? ""),
-            new Claim(JwtRegisteredClaimNames.FamilyName, user.LastName ?? "")
+            new Claim(JwtRegisteredClaimNames.FamilyName, user.LastName ?? ""),
+            ..roles.Select(roles => new Claim(ClaimTypes.Role, roles)),
+            ..userClaims
         ];
-        claims.AddRange(userClaims);
-        foreach(string role in roles)
-            claims.Add(new Claim(ClaimTypes.Role, role));
 
         JwtSecurityToken token = new(jwtSettings.Issuer, jwtSettings.Audience, claims, expires: expiry, signingCredentials: credentials);
         LoginDto loginDto = new()
