@@ -2,7 +2,8 @@
 public enum NotificationTypeEnum
 {
     SignUpSuccess = 1,
-    SignUpFailure = 2,
-    LoginSuccess = 3,
-    LoginFailure = 4
+    SignUpActivationSuccess,
+    SignUpFailure,
+    LoginSuccess,
+    LoginFailure
 }

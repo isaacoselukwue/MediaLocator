@@ -40,19 +40,20 @@ internal class JwtService(IDataProtectionProvider dataProtectionProvider, IOptio
             AccessToken = new()
             {
                 AccessToken = new JwtSecurityTokenHandler().WriteToken(token),
-                RefreshToken = GenerateProtectedToken(),
+                RefreshToken = GenerateProtectedToken(user.Id),
                 ExpiresIn = (long)expiry.Subtract(creationDate.UtcDateTime).TotalSeconds
             }
         };
 
         return Result<LoginDto>.Success(ResultMessage.AccessTokenGenerated, loginDto);
     }
-    private string GenerateProtectedToken()
+    private string GenerateProtectedToken(Guid userId)
     {
         string token = GenerateRefreshToken();
+        token = string.Concat(token, "|", userId);
         IDataProtector protector = _dataProtectionProvider.CreateProtector("JwtProtector");
         ITimeLimitedDataProtector timeLimitProtector = protector.ToTimeLimitedDataProtector();
-        string encryptedUserToken = timeLimitProtector.Protect(token, TimeSpan.FromMinutes(10));
+        string encryptedUserToken = timeLimitProtector.Protect(token, TimeSpan.FromHours(10));
         return encryptedUserToken;
     }
 
@@ -62,5 +63,13 @@ internal class JwtService(IDataProtectionProvider dataProtectionProvider, IOptio
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(randomNumber);
         return Convert.ToBase64String(randomNumber);
+    }
+    public (string token, string userId) UnprotectToken(string protectedToken)
+    {
+        IDataProtector protector = _dataProtectionProvider.CreateProtector("JwtProtector");
+        ITimeLimitedDataProtector timeLimitProtector = protector.ToTimeLimitedDataProtector();
+        string token = timeLimitProtector.Unprotect(protectedToken);
+        string[] tokenParts = token.Split('|');
+        return (tokenParts[0], tokenParts[1]);
     }
 }
