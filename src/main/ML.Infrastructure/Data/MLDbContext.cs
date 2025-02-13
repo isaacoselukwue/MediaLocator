@@ -10,4 +10,6 @@ public class MLDbContext : IdentityDbContext<Users, UserRoles, Guid>, IDataProte
     {
     }
     public virtual DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
+    public virtual DbSet<PasswordHistories> PasswordHistories { get; set; }
+    public virtual DbSet<SearchHistories> SearchHistories { get; set; }
 }

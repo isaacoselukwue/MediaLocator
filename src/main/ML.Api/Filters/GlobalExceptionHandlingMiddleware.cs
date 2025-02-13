@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ML.Application.Common.Models;
+using InternalException = ML.Application.Common.Exceptions;
 
 namespace ML.Api.Filters;
 
@@ -24,6 +25,20 @@ public partial class GlobalExceptionHandlingMiddleware(RequestDelegate next, Ser
             context.Response.StatusCode = 500;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsJsonAsync(Result.Failure("An error occurred",["We could not handle your request at this time"]));
+        }
+        catch (InternalException.ValidationException vex)
+        {
+            logger.Error(vex, "Validation error: {Message}", vex.Message);
+            context.Response.StatusCode = 400;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(Result.Failure("Validation failed", [vex.Message]));
+        }
+        catch (InternalException.HttpRequestException httpEx)
+        {
+            logger.Error(httpEx, "HTTP request error: {Message}", httpEx.Message);
+            context.Response.StatusCode = 400;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(Result.Failure("HTTP request error", [httpEx.Message]));
         }
         catch (Exception e)
         {

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ML.Infrastructure.OpenVerse.DTOs;
 using System.Text.Json;
+using RequestException = ML.Application.Common.Exceptions.HttpRequestException;
 
 namespace ML.Infrastructure.OpenVerse;
 internal class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<OpenVerseService> logger, IMemoryCache memoryCache, IOptions<OpenVerseSettings> openVerseSettings) 
@@ -32,7 +33,7 @@ internal class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<Op
         if (!response.IsSuccessStatusCode)
         {
             logger.LogInformation("Failed to get auth token: {responseContent}, {statusCode}, {reasonPhrase}", responseContent, response.StatusCode, response.ReasonPhrase);
-            throw new HttpRequestException("Failed to get auth token");
+            throw new RequestException("Failed to get auth token");
         }
         TokenResponse tokenResponse = JsonSerializer.Deserialize<TokenResponse>(responseContent, GetJsonSerializerOptions())!;
         memoryCache.Set(nameof(OpenVerseSettings), tokenResponse.AccessToken, DateTimeOffset.UtcNow.AddSeconds(tokenResponse.ExpiresIn));
@@ -50,7 +51,7 @@ internal class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<Op
         {
             logger.LogInformation("Failed to get rate limit: {responseContent}, {statusCode}, {reasonPhrase}",
                 responseContent, response.StatusCode, response.ReasonPhrase);
-            throw new HttpRequestException("Failed to get rate limit");
+            throw new RequestException("Failed to get rate limit");
         }
         RateLimitResponse rateLimit = JsonSerializer.Deserialize<RateLimitResponse>(responseContent, GetJsonSerializerOptions())!;
         return rateLimit;
@@ -79,7 +80,7 @@ internal class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<Op
         {
             logger.LogInformation("Failed to search audio: {responseContent}, {statusCode}, {reasonPhrase}",
                 responseContent, response.StatusCode, response.ReasonPhrase);
-            throw new HttpRequestException("Failed to search audio");
+            throw new RequestException("Failed to search audio");
         }
         var searchResponse =
             JsonSerializer.Deserialize<AudioSearchResponse>(responseContent, GetJsonSerializerOptions())!;
@@ -97,7 +98,7 @@ internal class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<Op
         {
             logger.LogInformation("Failed to get audio detail: {responseContent}, {statusCode}, {reasonPhrase}",
                 responseContent, response.StatusCode, response.ReasonPhrase);
-            throw new HttpRequestException("Failed to get audio detail");
+            throw new RequestException("Failed to get audio detail");
         }
         var detail = JsonSerializer.Deserialize<AudioResult>(responseContent, GetJsonSerializerOptions());
         return detail;
@@ -114,7 +115,7 @@ internal class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<Op
         {
             logger.LogInformation("Failed to get related audio: {responseContent}, {statusCode}, {reasonPhrase}",
                 responseContent, response.StatusCode, response.ReasonPhrase);
-            throw new HttpRequestException("Failed to get related audio");
+            throw new RequestException("Failed to get related audio");
         }
         var relatedResponse = JsonSerializer.Deserialize<AudioSearchResponse>(responseContent, GetJsonSerializerOptions())!;
         return relatedResponse;
@@ -143,7 +144,7 @@ internal class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<Op
         {
             logger.LogInformation("Failed to search images: {responseContent}, {statusCode}, {reasonPhrase}",
                 responseContent, response.StatusCode, response.ReasonPhrase);
-            throw new HttpRequestException("Failed to search images");
+            throw new RequestException("Failed to search images");
         }
 
         var imageSearchResponse = JsonSerializer.Deserialize<ImageSearchResponse>(responseContent, GetJsonSerializerOptions())!;
@@ -161,7 +162,7 @@ internal class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<Op
         {
             logger.LogInformation("Failed to get image detail: {responseContent}, {statusCode}, {reasonPhrase}",
                 responseContent, response.StatusCode, response.ReasonPhrase);
-            throw new HttpRequestException("Failed to get image detail");
+            throw new RequestException("Failed to get image detail");
         }
         var imageDetail = JsonSerializer.Deserialize<ImageResult>(responseContent, GetJsonSerializerOptions());
         return imageDetail;
@@ -178,7 +179,7 @@ internal class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<Op
         {
             logger.LogInformation("Failed to get related images: {responseContent}, {statusCode}, {reasonPhrase}",
                 responseContent, response.StatusCode, response.ReasonPhrase);
-            throw new HttpRequestException("Failed to get related images");
+            throw new RequestException("Failed to get related images");
         }
         var relatedResponse = JsonSerializer.Deserialize<ImageSearchResponse>(responseContent, GetJsonSerializerOptions())!;
         return relatedResponse;

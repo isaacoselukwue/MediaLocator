@@ -24,6 +24,7 @@ builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer<OpenApiFilter>();
 });
+
 builder.Services.AddHealthChecks();
 builder.Services.AddApiVersioning(x =>
 {
@@ -41,9 +42,13 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     app.MapScalarApiReference(x =>
     {
-        
         x.WithTitle("Media Locator Api");
         x.WithTheme(ScalarTheme.Moon);
+    });
+    app.UseSwaggerUi(settings =>
+    {
+        settings.DocumentTitle = "Media Locator Api";
+        settings.DocumentPath = "openapi/v1.json";
     });
 }
 
