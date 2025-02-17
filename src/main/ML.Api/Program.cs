@@ -1,5 +1,9 @@
 using Microsoft.Extensions.Options;
 using ML.Api.Filters;
+using ML.Api.Services;
+using ML.Application;
+using ML.Application.Common.Interfaces;
+using ML.Infrastructure;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -17,7 +21,7 @@ builder.Host.UseSerilog((context, config) =>
 builder.Services.AddScoped<ApiKeyAuthorizationFilter>();
 builder.Services.AddControllers(x =>
 {
-    x.Filters.Add<ApiKeyAuthorizationFilter>();
+    //x.Filters.Add<ApiKeyAuthorizationFilter>();
 });
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi(options =>
@@ -26,6 +30,8 @@ builder.Services.AddOpenApi(options =>
 });
 
 builder.Services.AddHealthChecks();
+
+builder.Services.AddTransient<ICurrentUser, CurrentUser>();
 builder.Services.AddApiVersioning(x =>
 {
     x.DefaultApiVersion = new ApiVersion(1, 0);
@@ -33,9 +39,12 @@ builder.Services.AddApiVersioning(x =>
     x.ReportApiVersions = true;
 });
 
+builder.AddApplicationServices();
+builder.AddInfrastructureServices();
+
 
 var app = builder.Build();
-
+//app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

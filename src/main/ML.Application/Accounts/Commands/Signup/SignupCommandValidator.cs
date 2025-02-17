@@ -1,7 +1,7 @@
 ﻿global using FluentValidation;
 
 namespace ML.Application.Accounts.Commands.Signup;
-internal class SignupCommandValidator : AbstractValidator<SignupCommand>
+public class SignupCommandValidator : AbstractValidator<SignupCommand>
 {
     public SignupCommandValidator()
     {

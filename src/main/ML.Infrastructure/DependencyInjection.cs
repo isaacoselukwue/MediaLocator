@@ -11,6 +11,9 @@ global using ML.Infrastructure.Email;
 global using ML.Infrastructure.Identity;
 global using Polly;
 using ML.Infrastructure.OpenVerse;
+using Npgsql;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Polly.Retry;
 
 namespace ML.Infrastructure;
@@ -29,7 +32,11 @@ public static class DependencyInjection
 
         builder.Services.AddDbContextPool<MLDbContext>((sp, options) =>
         {
-            options.AddInterceptors(sp.GetServices<ISaveChangesInterceptor>());
+            using (var scope = sp.CreateScope())
+            {
+                var scopedProvider = scope.ServiceProvider;
+                options.AddInterceptors(scopedProvider.GetServices<ISaveChangesInterceptor>());
+            }
             options.UseNpgsql(connectionString,
                 npgsqlOptions =>
                 {
@@ -55,10 +62,6 @@ public static class DependencyInjection
                 options.Lockout.AllowedForNewUsers = true;
                 options.Lockout.MaxFailedAccessAttempts = 5;
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromHours(24);
-                builder.Services.Configure<PasswordHasherOptions>(options =>
-                {
-                    options.IterationCount = 500000;
-                });
             }
             )
             .AddRoles<UserRoles>()
@@ -98,12 +101,33 @@ public static class DependencyInjection
                     Timeout = TimeSpan.FromSeconds(10)
                 });
             });
+        string serviceName = builder.Configuration["OpenTelemetry:ServiceName"]??"MediaLocator";
+        builder.Services
+            .AddOpenTelemetry()
+            .ConfigureResource(resource => resource.AddService(serviceName))
+            .WithTracing(tracing =>
+            {
+                tracing
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddEntityFrameworkCoreInstrumentation()
+                    .AddRedisInstrumentation()
+                    .AddNpgsql();
+
+                tracing.AddOtlpExporter(exporter =>
+                {
+                    exporter.Endpoint = new Uri(builder.Configuration["OpenTelemetry:OtlpEndpoint"] ?? "http://localhost:4317");
+                });
+            });
+
+        builder.Services.AddMemoryCache();
 
         builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
         builder.Services.AddTransient<IEmailService, EmailService>();
 
         builder.Services.AddTransient<IIdentityService, IdentityService>();
 
+        builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 
         builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
         builder.Services.AddTransient<IJwtService, JwtService>();
