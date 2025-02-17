@@ -1,5 +1,5 @@
 ﻿namespace ML.Application.Accounts.Commands.Signup;
-internal class SignupVerificationValidator : AbstractValidator<SignupVerificationCommand>
+public class SignupVerificationValidator : AbstractValidator<SignupVerificationCommand>
 {
     public SignupVerificationValidator()
     {

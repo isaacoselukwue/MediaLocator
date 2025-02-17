@@ -1,5 +1,5 @@
 ﻿namespace ML.Application.Accounts.Commands.Login;
-internal class RefreshTokenValidator : AbstractValidator<RefreshTokenCommand>
+public class RefreshTokenValidator : AbstractValidator<RefreshTokenCommand>
 {
     public RefreshTokenValidator()
     {

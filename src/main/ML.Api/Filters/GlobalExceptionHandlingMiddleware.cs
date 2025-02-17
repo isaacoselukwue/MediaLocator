@@ -31,14 +31,14 @@ public partial class GlobalExceptionHandlingMiddleware(RequestDelegate next, Ser
             logger.Error(vex, "Validation error: {Message}", vex.Message);
             context.Response.StatusCode = 400;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(Result.Failure("Validation failed", [vex.Message]));
+            await context.Response.WriteAsJsonAsync(Result.Failure("Validation failed", [.. vex.Errors.SelectMany(x => x.Value)]));
         }
         catch (InternalException.HttpRequestException httpEx)
         {
             logger.Error(httpEx, "HTTP request error: {Message}", httpEx.Message);
             context.Response.StatusCode = 400;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(Result.Failure("HTTP request error", [httpEx.Message]));
+            await context.Response.WriteAsJsonAsync(Result.Failure("HTTP request error", [.. httpEx.Errors.SelectMany(x => x.Value)]));
         }
         catch (Exception e)
         {
