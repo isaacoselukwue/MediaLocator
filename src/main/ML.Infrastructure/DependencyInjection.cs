@@ -1,16 +1,19 @@
-﻿using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Http.Resilience;
-using ML.Application.Common.Interfaces;
-using ML.Domain.Entities;
-using ML.Infrastructure.Data;
-using ML.Infrastructure.Data.Interceptors;
-using ML.Infrastructure.Email;
-using ML.Infrastructure.Identity;
-using Polly;
+﻿global using Microsoft.AspNetCore.DataProtection;
+global using Microsoft.AspNetCore.Identity;
+global using Microsoft.Extensions.Configuration;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Hosting;
+global using Microsoft.Extensions.Http.Resilience;
+global using ML.Application.Common.Interfaces;
+global using ML.Infrastructure.Data;
+global using ML.Infrastructure.Data.Interceptors;
+global using ML.Infrastructure.Email;
+global using ML.Infrastructure.Identity;
+global using Polly;
+using ML.Infrastructure.OpenVerse;
+using Npgsql;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Polly.Retry;
 
 namespace ML.Infrastructure;
@@ -29,7 +32,11 @@ public static class DependencyInjection
 
         builder.Services.AddDbContextPool<MLDbContext>((sp, options) =>
         {
-            options.AddInterceptors(sp.GetServices<ISaveChangesInterceptor>());
+            using (var scope = sp.CreateScope())
+            {
+                var scopedProvider = scope.ServiceProvider;
+                options.AddInterceptors(scopedProvider.GetServices<ISaveChangesInterceptor>());
+            }
             options.UseNpgsql(connectionString,
                 npgsqlOptions =>
                 {
@@ -67,11 +74,11 @@ public static class DependencyInjection
                         .PersistKeysToDbContext<MLDbContext>()
                         .SetApplicationName("MediaLocatorApplicationService");
 
-        builder.Services.AddHttpClient("OpenApi")
+        builder.Services.AddHttpClient("OpenVerse")
             .ConfigureHttpClient((sp, client) =>
             {
                 var configuration = sp.GetRequiredService<IConfiguration>();
-                client.BaseAddress = new Uri(configuration["OpenApi:BaseAddress"]);
+                client.BaseAddress = new Uri(configuration["OpenVerseSettings:BaseAddress"]!);
             })
             .AddResilienceHandler("retry", pipeline =>
             {
@@ -94,14 +101,51 @@ public static class DependencyInjection
                     Timeout = TimeSpan.FromSeconds(10)
                 });
             });
+        string serviceName = builder.Configuration["OpenTelemetry:ServiceName"]??"MediaLocator";
+        builder.Services
+            .AddOpenTelemetry()
+            .ConfigureResource(resource => resource.AddService(serviceName))
+            .WithTracing(tracing =>
+            {
+                tracing
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddEntityFrameworkCoreInstrumentation()
+                    .AddRedisInstrumentation()
+                    .AddNpgsql();
+
+                tracing.AddOtlpExporter(exporter =>
+                {
+                    exporter.Endpoint = new Uri(builder.Configuration["OpenTelemetry:OtlpEndpoint"] ?? "http://localhost:4317");
+                });
+            });
+
+        //builder.Services.AddMemoryCache();
+#pragma warning disable EXTEXP0018 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+        builder.Services.AddHybridCache(options =>
+        {
+            options.MaximumPayloadBytes = 1024 * 1024 * 20;
+            options.MaximumKeyLength = 512;
+
+            options.DefaultEntryOptions = new Microsoft.Extensions.Caching.Hybrid.HybridCacheEntryOptions
+            {
+                Expiration = TimeSpan.FromHours(24),
+                LocalCacheExpiration = TimeSpan.FromHours(24)
+            };
+        });
+#pragma warning restore EXTEXP0018 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
         builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
         builder.Services.AddTransient<IEmailService, EmailService>();
 
         builder.Services.AddTransient<IIdentityService, IdentityService>();
 
-        builder.Services.AddTransient<IJwtService, JwtService>();
+        builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 
         builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+        builder.Services.AddTransient<IJwtService, JwtService>();
+
+        builder.Services.Configure<OpenVerseSettings>(builder.Configuration.GetSection("OpenVerseSettings"));
+        builder.Services.AddTransient<IOpenVerseService, OpenVerseService>();
     }
 }

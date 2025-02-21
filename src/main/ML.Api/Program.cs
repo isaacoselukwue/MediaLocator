@@ -1,7 +1,17 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using ML.Api.Filters;
+using ML.Api.Services;
+using ML.Application;
+using ML.Application.Common.Interfaces;
+using ML.Infrastructure;
 using Scalar.AspNetCore;
 using Serilog;
+using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,14 +27,17 @@ builder.Host.UseSerilog((context, config) =>
 builder.Services.AddScoped<ApiKeyAuthorizationFilter>();
 builder.Services.AddControllers(x =>
 {
-    x.Filters.Add<ApiKeyAuthorizationFilter>();
+    //x.Filters.Add<ApiKeyAuthorizationFilter>();
 });
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer<OpenApiFilter>();
 });
+
 builder.Services.AddHealthChecks();
+
+builder.Services.AddTransient<ICurrentUser, CurrentUser>();
 builder.Services.AddApiVersioning(x =>
 {
     x.DefaultApiVersion = new ApiVersion(1, 0);
@@ -32,18 +45,86 @@ builder.Services.AddApiVersioning(x =>
     x.ReportApiVersions = true;
 });
 
+builder.AddApplicationServices();
+builder.AddInfrastructureServices();
+
+builder.Services.AddAuthentication(authentication =>
+{
+    authentication.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    authentication.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    authentication.DefaultSignInScheme = JwtBearerDefaults.AuthenticationScheme;
+    authentication.DefaultSignOutScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = true;
+    options.SaveToken = true;
+    options.IncludeErrorDetails = true;
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context => {
+            if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
+            {
+                context.Response.Headers.Append("X-Token-Expired", "true");
+            }
+            return Task.CompletedTask;
+        }
+    };
+    string securityKey = builder.Configuration["JwtSettings:Secret"]!;
+    options.TokenValidationParameters = new()
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["AppSettings:UrlSettings:FrontendBaseUrl"] ?? "www.medialocator.com",
+        ValidAudience = "client",
+        //IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(securityKey)),
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("UserPolicy", pb =>
+    {
+        pb.RequireAuthenticatedUser()
+            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+            .AddRequirements()
+            .RequireRole("User");
+    });
+
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes;
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Optimal;
+});
+builder.Services.Configure<GzipCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.SmallestSize;
+});
+
+
 
 var app = builder.Build();
-
+//app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference(x =>
     {
-        
         x.WithTitle("Media Locator Api");
         x.WithTheme(ScalarTheme.Moon);
+    });
+    app.UseSwaggerUi(settings =>
+    {
+        settings.DocumentTitle = "Media Locator Api";
+        settings.DocumentPath = "openapi/v1.json";
     });
 }
 
@@ -51,6 +132,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseResponseCompression();
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
