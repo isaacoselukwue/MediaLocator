@@ -1,4 +1,7 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using ML.Api.Filters;
 using ML.Api.Services;
 using ML.Application;
@@ -6,6 +9,9 @@ using ML.Application.Common.Interfaces;
 using ML.Infrastructure;
 using Scalar.AspNetCore;
 using Serilog;
+using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +48,67 @@ builder.Services.AddApiVersioning(x =>
 builder.AddApplicationServices();
 builder.AddInfrastructureServices();
 
+builder.Services.AddAuthentication(authentication =>
+{
+    authentication.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    authentication.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    authentication.DefaultSignInScheme = JwtBearerDefaults.AuthenticationScheme;
+    authentication.DefaultSignOutScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = true;
+    options.SaveToken = true;
+    options.IncludeErrorDetails = true;
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context => {
+            if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
+            {
+                context.Response.Headers.Append("X-Token-Expired", "true");
+            }
+            return Task.CompletedTask;
+        }
+    };
+    string securityKey = builder.Configuration["JwtSettings:Secret"]!;
+    options.TokenValidationParameters = new()
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["AppSettings:UrlSettings:FrontendBaseUrl"] ?? "www.medialocator.com",
+        ValidAudience = "client",
+        //IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(securityKey)),
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("UserPolicy", pb =>
+    {
+        pb.RequireAuthenticatedUser()
+            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+            .AddRequirements()
+            .RequireRole("User");
+    });
+
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes;
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Optimal;
+});
+builder.Services.Configure<GzipCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.SmallestSize;
+});
+
+
 
 var app = builder.Build();
 //app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
@@ -65,6 +132,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseResponseCompression();
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

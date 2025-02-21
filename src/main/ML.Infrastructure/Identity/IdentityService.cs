@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using ML.Application.Accounts.Commands.Login;
+using ML.Application.Authentication.Commands.Login;
 using ML.Application.Common.Interfaces;
 using ML.Application.Common.Models;
 using ML.Domain.Constants;
@@ -8,6 +8,24 @@ using System.Security.Claims;
 namespace ML.Infrastructure.Identity;
 internal class IdentityService(SignInManager<Users> signInManager, UserManager<Users> userManager, IJwtService jwtService) : IIdentityService
 {
+    public async Task<Result> ChangePasswordAsync(string newPassword)
+    {
+        Users? user = await userManager.FindByIdAsync(jwtService.GetUserId().ToString());
+        if (user is null)
+        {
+            return Result.Failure(ResultMessage.ChangePasswordFailed, ["Invalid user"]);
+        }
+        if (user.UsersStatus != Domain.Enums.StatusEnum.Active)
+            return Result.Failure(ResultMessage.ChangePasswordFailed, ["Account is not active"]);
+
+        IdentityResult result = await userManager.ChangePasswordAsync(user, user.PasswordHash!, newPassword);
+        if (!result.Succeeded)
+        {
+            return result.ToApplicationResult(ResultMessage.ChangePasswordFailed);
+        }
+        await signInManager.RefreshSignInAsync(user);
+        return Result.Success(ResultMessage.ChangePasswordSuccess);
+    }
     public async Task<Result<LoginDto>> SignInUser(string username, string password)
     {
         var result = await signInManager.PasswordSignInAsync(username, password, false, true);
@@ -70,6 +88,29 @@ internal class IdentityService(SignInManager<Users> signInManager, UserManager<U
         }
 
         return tokenResult;
+    }
+    public async Task<Result> RevokeRefreshUserTokenAsync(string encryptedToken)
+    {
+        (string token, string userId) = jwtService.UnprotectToken(encryptedToken);
+        Users? user = await userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            return Result.Failure(ResultMessage.TokenRefreshFailed, ["Invalid user"]);
+        }
+        if (user.UsersStatus != Domain.Enums.StatusEnum.Active)
+        {
+            return Result.Failure(ResultMessage.TokenRefreshFailed, ["Account is not active"]);
+        }
+
+        string? validToken = await userManager.GetAuthenticationTokenAsync(user, "MediaLocator", "RefreshToken");
+        if (validToken != encryptedToken)
+        {
+            return Result.Failure(ResultMessage.TokenRefreshFailed, ["Invalid token"]);
+        }
+
+        await userManager.RemoveAuthenticationTokenAsync(user, "MediaLocator", "RefreshToken");
+
+        return Result.Success("Refresh token successfully revoked");
     }
     public async Task<(Result, string token)> SignUpUserAsync(string email, string password, string firstName, string lastName, string phoneNumber)
     {

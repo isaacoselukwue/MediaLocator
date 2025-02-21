@@ -120,7 +120,20 @@ public static class DependencyInjection
                 });
             });
 
-        builder.Services.AddMemoryCache();
+        //builder.Services.AddMemoryCache();
+#pragma warning disable EXTEXP0018 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+        builder.Services.AddHybridCache(options =>
+        {
+            options.MaximumPayloadBytes = 1024 * 1024 * 20;
+            options.MaximumKeyLength = 512;
+
+            options.DefaultEntryOptions = new Microsoft.Extensions.Caching.Hybrid.HybridCacheEntryOptions
+            {
+                Expiration = TimeSpan.FromHours(24),
+                LocalCacheExpiration = TimeSpan.FromHours(24)
+            };
+        });
+#pragma warning restore EXTEXP0018 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
         builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
         builder.Services.AddTransient<IEmailService, EmailService>();

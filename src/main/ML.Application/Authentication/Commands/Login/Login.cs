@@ -2,7 +2,7 @@
 using ML.Application.Common.Interfaces;
 using ML.Application.Common.Models;
 
-namespace ML.Application.Accounts.Commands.Login;
+namespace ML.Application.Authentication.Commands.Login;
 public record LoginCommand : IRequest<Result<LoginDto>>
 {
     public string? EmailAddress { get; set; }
