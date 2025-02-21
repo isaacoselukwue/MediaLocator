@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using ML.Application.Accounts.Commands.Login;
-using ML.Application.Accounts.Commands.Signup;
+using ML.Application.Authentication.Commands.Login;
+using ML.Application.Authentication.Commands.Signup;
 using ML.Application.Common.Models;
 
 namespace ML.Api.Controllers.v1;
@@ -13,13 +13,13 @@ public class AuthenticationController(ISender sender) : BaseController
     /// </summary>
     /// <param name="command">The login command including email address and password.</param>
     /// <returns>
-    /// Returns an <see cref="ActionResult{Result{LoginDto}}"/> containing an access token if login is successful;
+    /// Returns an <see cref="ActionResult{T}"/> containing a <see cref="Result{LoginDto}"/> with an access token if login is successful;
     /// otherwise, a failure message.
     /// </returns>
     /// <response code="200">Login successful and access token is returned.</response>
     /// <response code="400">Login failed due to invalid credentials or account restrictions.</response>
     [HttpPost("login")]
-    public  async ValueTask<ActionResult<Result<LoginDto>>> Login([FromBody] LoginCommand command)
+    public async ValueTask<ActionResult<Result<LoginDto>>> Login([FromBody] LoginCommand command)
     {
         var result = await sender.Send(command);
         return result.Succeeded ? Ok(result) : BadRequest(result);
@@ -31,6 +31,13 @@ public class AuthenticationController(ISender sender) : BaseController
         var result = await sender.Send(command);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
+
+    [HttpPost("logout")]
+    public async ValueTask<ActionResult<Result>> Logout([FromBody] RevokeRefreshTokenCommand command)
+    {
+        var result = await sender.Send(command);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
     /// <summary>
     /// Registers a new user and sends an activation email.
     /// </summary>
@@ -38,7 +45,7 @@ public class AuthenticationController(ISender sender) : BaseController
     /// The signup command including email address, password, confirm password, first name, last name, and phone number.
     /// </param>
     /// <returns>
-    /// Returns an <see cref="ActionResult{Result}"/> indicating whether the signup was successful.
+    /// Returns an <see cref="ActionResult{T}"/> containing a <see cref="Result"/> indicating whether the signup was successful.
     /// In case of success, an activation token is generated and an event is published to send an activation email.
     /// </returns>
     /// <response code="200">Signup successful; an activation email is sent to the user.</response>

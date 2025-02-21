@@ -3,7 +3,7 @@ using ML.Application.Common.Interfaces;
 using ML.Application.Common.Models;
 using ML.Domain.Enums;
 
-namespace ML.Application.Accounts.Commands.Signup;
+namespace ML.Application.Authentication.Commands.Signup;
 public record SignupCommand : IRequest<Result>
 {
     public string? EmailAddress { get; set; }

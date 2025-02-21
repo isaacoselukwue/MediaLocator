@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ML.Infrastructure.OpenVerse.DTOs;
@@ -6,7 +7,7 @@ using System.Text.Json;
 using RequestException = ML.Application.Common.Exceptions.HttpRequestException;
 
 namespace ML.Infrastructure.OpenVerse;
-internal class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<OpenVerseService> logger, IMemoryCache memoryCache, IOptions<OpenVerseSettings> openVerseSettings) 
+internal class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<OpenVerseService> logger, HybridCache hybridCache, IOptions<OpenVerseSettings> openVerseSettings) 
     : IOpenVerseService
 {
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
@@ -36,7 +37,7 @@ internal class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<Op
             throw new RequestException("Failed to get auth token");
         }
         TokenResponse tokenResponse = JsonSerializer.Deserialize<TokenResponse>(responseContent, GetJsonSerializerOptions())!;
-        memoryCache.Set(nameof(OpenVerseSettings), tokenResponse.AccessToken, DateTimeOffset.UtcNow.AddSeconds(tokenResponse.ExpiresIn));
+        await hybridCache.SetAsync(nameof(OpenVerseSettings), tokenResponse.AccessToken, new HybridCacheEntryOptions { Expiration = TimeSpan.FromSeconds(tokenResponse.ExpiresIn), LocalCacheExpiration = TimeSpan.FromSeconds(tokenResponse.ExpiresIn) });
         return tokenResponse.AccessToken!;
     }
     public async Task<RateLimitResponse> GetRateLimitAsync()

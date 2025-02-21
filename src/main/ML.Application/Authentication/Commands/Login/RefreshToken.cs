@@ -2,7 +2,7 @@
 using ML.Application.Common.Interfaces;
 using ML.Application.Common.Models;
 
-namespace ML.Application.Accounts.Commands.Login;
+namespace ML.Application.Authentication.Commands.Login;
 public record RefreshTokenCommand : IRequest<Result<LoginDto>>
 {
     public string? EncryptedToken { get; set; }

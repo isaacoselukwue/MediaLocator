@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using ML.Application.Accounts.Commands.Login;
+using ML.Application.Authentication.Commands.Login;
 using ML.Application.Common.Models;
 using ML.Domain.Constants;
 using System.IdentityModel.Tokens.Jwt;
@@ -10,7 +10,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 namespace ML.Infrastructure.Identity;
-internal class JwtService(IDataProtectionProvider dataProtectionProvider, IOptions<JwtSettings> jwtSettings) : IJwtService
+internal class JwtService(ICurrentUser currentUser, IDataProtectionProvider dataProtectionProvider, IOptions<JwtSettings> jwtSettings) : IJwtService
 {
     private readonly IDataProtectionProvider _dataProtectionProvider = dataProtectionProvider;
     private readonly JwtSettings jwtSettings = jwtSettings.Value;
@@ -71,5 +71,11 @@ internal class JwtService(IDataProtectionProvider dataProtectionProvider, IOptio
         string token = timeLimitProtector.Unprotect(protectedToken);
         string[] tokenParts = token.Split('|');
         return (tokenParts[0], tokenParts[1]);
+    }
+
+    public Guid GetUserId()
+    {
+        Guid userId = currentUser.UserId;
+        return userId;
     }
 }
