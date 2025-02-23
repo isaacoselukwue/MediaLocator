@@ -5,6 +5,7 @@ namespace ML.Application.Common.Interfaces;
 public interface IIdentityService
 {
     Task<Result> ChangePasswordAsync(string newPassword);
+    Task<(Result, string usersEmail)> DeactivateAccountAsync();
     Task<Result<LoginDto>> RefreshUserTokenAsync(string encryptedToken);
     Task<Result> RevokeRefreshUserTokenAsync(string encryptedToken);
     Task<Result<LoginDto>> SignInUser(string username, string password);

@@ -26,6 +26,23 @@ internal class IdentityService(SignInManager<Users> signInManager, UserManager<U
         await signInManager.RefreshSignInAsync(user);
         return Result.Success(ResultMessage.ChangePasswordSuccess);
     }
+    public async Task<(Result, string usersEmail)> DeactivateAccountAsync()
+    {
+        Users? user = await userManager.FindByIdAsync(jwtService.GetUserId().ToString());
+        if (user is null)
+        {
+            return (Result.Failure(ResultMessage.DeactivateAccountFailed, ["Invalid user"]), string.Empty);
+        }
+        if (user.UsersStatus != Domain.Enums.StatusEnum.Active)
+            return (Result.Failure(ResultMessage.DeactivateAccountFailed, ["Account is not active"]), string.Empty);
+        user.UsersStatus = Domain.Enums.StatusEnum.InActive;
+        IdentityResult result = await userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+        {
+            return (result.ToApplicationResult(ResultMessage.DeactivateAccountFailed), string.Empty);
+        }
+        return (Result.Success(ResultMessage.DeactivateAccountSuccess), user.Email!);
+    }
     public async Task<Result<LoginDto>> SignInUser(string username, string password)
     {
         var result = await signInManager.PasswordSignInAsync(username, password, false, true);
