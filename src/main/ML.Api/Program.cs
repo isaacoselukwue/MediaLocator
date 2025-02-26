@@ -90,6 +90,12 @@ builder.Services.AddAuthorizationBuilder()
             .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
             .AddRequirements()
             .RequireRole("User");
+    })
+    .AddPolicy("AdminPolicy", pb => {
+        pb.RequireAuthenticatedUser()
+            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+            .AddRequirements()
+            .RequireRole("Admin");
     });
 
 builder.Services.AddResponseCompression(options =>
@@ -111,7 +117,7 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
 
 
 var app = builder.Build();
-//app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
+app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

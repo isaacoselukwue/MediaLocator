@@ -78,4 +78,10 @@ internal class JwtService(ICurrentUser currentUser, IDataProtectionProvider data
         Guid userId = currentUser.UserId;
         return userId;
     }
+
+    public string GetEmailAddress()
+    {
+        string email = currentUser.Email;
+        return email;
+    }
 }

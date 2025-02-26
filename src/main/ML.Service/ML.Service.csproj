@@ -13,8 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\main\ML.Application\ML.Application.csproj" />
-    <ProjectReference Include="..\src\main\ML.Domain\ML.Domain.csproj" />
+    <ProjectReference Include="..\ML.Application\ML.Application.csproj" />
+    <ProjectReference Include="..\ML.Domain\ML.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

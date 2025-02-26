@@ -122,6 +122,10 @@ public static class DependencyInjection
 
         //builder.Services.AddMemoryCache();
 #pragma warning disable EXTEXP0018 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+        //builder.Services.AddStackExchangeRedisCache(options =>
+        //{
+        //    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+        //});
         builder.Services.AddHybridCache(options =>
         {
             options.MaximumPayloadBytes = 1024 * 1024 * 20;

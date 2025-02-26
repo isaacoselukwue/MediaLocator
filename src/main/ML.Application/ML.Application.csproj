@@ -15,7 +15,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Accounts\Queries\" />
     <Folder Include="Authentication\Queries\" />
   </ItemGroup>
 
