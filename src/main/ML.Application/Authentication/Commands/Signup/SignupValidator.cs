@@ -1,9 +1,9 @@
 ﻿global using FluentValidation;
 
 namespace ML.Application.Authentication.Commands.Signup;
-public class SignupCommandValidator : AbstractValidator<SignupCommand>
+public class SignupValidator : AbstractValidator<SignupCommand>
 {
-    public SignupCommandValidator()
+    public SignupValidator()
     {
         RuleFor(x=>x.EmailAddress).NotEmpty().EmailAddress();
         RuleFor(x => x.Password).NotEmpty();

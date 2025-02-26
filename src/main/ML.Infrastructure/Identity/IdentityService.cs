@@ -8,6 +8,25 @@ using System.Security.Claims;
 namespace ML.Infrastructure.Identity;
 internal class IdentityService(SignInManager<Users> signInManager, UserManager<Users> userManager, IJwtService jwtService) : IIdentityService
 {
+    public async Task<(Result, string email)> ActivateAccountAsync(Guid userId)
+    {
+        Users? user = await userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return (Result.Failure(ResultMessage.ActivateAccountFailed, ["Invalid user"]), string.Empty);
+        }
+        if (user.UsersStatus == Domain.Enums.StatusEnum.Active)
+            return (Result.Failure(ResultMessage.ActivateAccountFailed, ["Account is already active"]), string.Empty);
+        user.UsersStatus = Domain.Enums.StatusEnum.Active;
+        user.LastModified = DateTimeOffset.UtcNow;
+        user.LastModifiedBy = jwtService.GetEmailAddress();
+        IdentityResult result = await userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+        {
+            return (result.ToApplicationResult(ResultMessage.ActivateAccountFailed), string.Empty);
+        }
+        return (Result.Success(ResultMessage.ActivateAccountSuccess), user.Email!);
+    }
     public async Task<Result> ChangePasswordAsync(string newPassword)
     {
         Users? user = await userManager.FindByIdAsync(jwtService.GetUserId().ToString());
@@ -26,6 +45,27 @@ internal class IdentityService(SignInManager<Users> signInManager, UserManager<U
         await signInManager.RefreshSignInAsync(user);
         return Result.Success(ResultMessage.ChangePasswordSuccess);
     }
+    public async Task<(Result, string email)> ChangeUserRoleAsync(string userId, string role)
+    {
+        Users? user = await userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            return (Result.Failure(ResultMessage.ChangeUserRoleFailed, ["Invalid user"]), string.Empty);
+        }
+        if (user.UsersStatus != Domain.Enums.StatusEnum.Active)
+            return (Result.Failure(ResultMessage.ChangeUserRoleFailed, ["Account is not active"]), string.Empty);
+        IList<string> roles = await userManager.GetRolesAsync(user);
+        if (roles.Contains(role))
+        {
+            return (Result.Failure(ResultMessage.ChangeUserRoleFailed, ["User already has the role"]), user.Email!);
+        }
+        IdentityResult result = await userManager.AddToRoleAsync(user, role);
+        if (!result.Succeeded)
+        {
+            return (result.ToApplicationResult(ResultMessage.ChangeUserRoleFailed), string.Empty);
+        }
+        return (Result.Success(ResultMessage.ChangeUserRoleSuccess), user.Email!);
+    }
     public async Task<(Result, string usersEmail)> DeactivateAccountAsync()
     {
         Users? user = await userManager.FindByIdAsync(jwtService.GetUserId().ToString());
@@ -36,12 +76,46 @@ internal class IdentityService(SignInManager<Users> signInManager, UserManager<U
         if (user.UsersStatus != Domain.Enums.StatusEnum.Active)
             return (Result.Failure(ResultMessage.DeactivateAccountFailed, ["Account is not active"]), string.Empty);
         user.UsersStatus = Domain.Enums.StatusEnum.InActive;
+        user.LastModified = DateTimeOffset.UtcNow;
+        user.LastModifiedBy = jwtService.GetEmailAddress();
         IdentityResult result = await userManager.UpdateAsync(user);
         if (!result.Succeeded)
         {
             return (result.ToApplicationResult(ResultMessage.DeactivateAccountFailed), string.Empty);
         }
         return (Result.Success(ResultMessage.DeactivateAccountSuccess), user.Email!);
+    }
+    public async Task<Result> DeleteUserAsync(string userId, bool isPermanant)
+    {
+        Users? user = await userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            return Result.Failure(ResultMessage.DeleteAccountFailed, ["Invalid user"]);
+        }
+
+        if(user.UsersStatus == Domain.Enums.StatusEnum.Deleted && !isPermanant)
+            return Result.Failure(ResultMessage.DeleteAccountFailed, ["Account is already on soft delete"]);
+
+        IdentityResult result;
+        if (!isPermanant)
+        {
+            user.UsersStatus = Domain.Enums.StatusEnum.Deleted;
+            user.LastModified = DateTimeOffset.UtcNow;
+            user.LastModifiedBy = jwtService.GetEmailAddress();
+            result = await userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+            {
+                return result.ToApplicationResult(ResultMessage.DeleteAccountFailed);
+            }
+            return Result.Success(ResultMessage.DeleteAccountSuccess);
+        }
+
+        result = await userManager.DeleteAsync(user);
+        if (!result.Succeeded)
+        {
+            return result.ToApplicationResult(ResultMessage.DeleteAccountFailed);
+        }
+        return Result.Success(ResultMessage.DeleteAccountSuccess);
     }
     public async Task<Result<LoginDto>> SignInUser(string username, string password)
     {
@@ -169,6 +243,7 @@ internal class IdentityService(SignInManager<Users> signInManager, UserManager<U
 
         return (result.ToApplicationResult(user.Id.ToString()), token);
     }
+    public IQueryable<Users> UserAccounts() => userManager.Users;
     public async Task<(Result, string usersEmail)> ValidateSignupAsync(string userId, string activationToken)
     {
         Users? user = await userManager.FindByIdAsync(userId);
