@@ -11,6 +11,7 @@ global using ML.Infrastructure.Email;
 global using ML.Infrastructure.Identity;
 global using Polly;
 using ML.Infrastructure.OpenVerse;
+using ML.Infrastructure.Search;
 using Npgsql;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -124,7 +125,7 @@ public static class DependencyInjection
 #pragma warning disable EXTEXP0018 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
         //builder.Services.AddStackExchangeRedisCache(options =>
         //{
-        //    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+        //    options.Configuration = builder.Configuration.GetConnectionString("RedisConnection");
         //});
         builder.Services.AddHybridCache(options =>
         {
@@ -151,5 +152,7 @@ public static class DependencyInjection
 
         builder.Services.Configure<OpenVerseSettings>(builder.Configuration.GetSection("OpenVerseSettings"));
         builder.Services.AddTransient<IOpenVerseService, OpenVerseService>();
+
+        builder.Services.AddTransient<ISearchService, SearchService>();
     }
 }

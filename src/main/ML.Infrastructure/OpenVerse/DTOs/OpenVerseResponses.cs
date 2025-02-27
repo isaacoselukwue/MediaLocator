@@ -8,7 +8,7 @@ internal class TokenResponse
     [JsonPropertyName("expires_in")]
     public int ExpiresIn { get; set; }
 }
-internal class RateLimitResponse
+public class RateLimitResponse
 {
     [JsonPropertyName("requests_this_minute")]
     public int? RequestsThisMinute { get; set; }
