@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.AspNetCore.Http.Timeouts;
 using ML.Application.Common.Interfaces;
 using ML.Application.Common.Models;
 
@@ -21,6 +22,7 @@ internal class ActivateAccountCommandHandler(IIdentityService identityService, I
 {
     public async Task<Result> Handle(ActivateAccountCommand request, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        var result = await identityService.ActivateAccountAsync(request.UserId);
+        return result.Item1;
     }
 }

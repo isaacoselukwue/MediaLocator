@@ -6,6 +6,10 @@ using ML.Application.Accounts.Queries;
 using ML.Application.Common.Models;
 
 namespace ML.Api.Controllers.v1;
+/// <summary>
+/// Account controller for managing user accounts. Here users can change password, deactivate account. Admins can activate account, view users, change user role and delete account.
+/// </summary>
+/// <param name="sender"></param>
 [ApiController]
 [Authorize]
 public class AccountController(ISender sender) : BaseController

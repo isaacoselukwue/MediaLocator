@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <Folder Include="Authentication\Queries\" />
+    <Folder Include="Media\Commands\" />
   </ItemGroup>
 
   <ItemGroup>
