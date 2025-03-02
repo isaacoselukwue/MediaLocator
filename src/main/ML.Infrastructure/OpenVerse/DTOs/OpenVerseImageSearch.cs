@@ -1,3 +1,4 @@
+namespace ML.Infrastructure.OpenVerse.DTOs;
 public class ImageSearchResponse
 {
     [JsonPropertyName("result_count")]
@@ -9,7 +10,7 @@ public class ImageSearchResponse
     [JsonPropertyName("page")]
     public int Page { get; set; }
     [JsonPropertyName("results")]
-    public List<ImageResult>? Results { get; set; }
+    public List<ImageResult> Results { get; set; } = [];
     [JsonPropertyName("warnings")]
     public List<ImageSearchWarning>? Warnings { get; set; }
 }
@@ -50,8 +51,8 @@ public class ImageResult
     public string? Source { get; set; }
     [JsonPropertyName("category")]
     public string? Category { get; set; }
-    [JsonPropertyName("filesize")]
-    public int? FileSize { get; set; }
+    //[JsonPropertyName("filesize")]
+    //public int? FileSize { get; set; }
     [JsonPropertyName("filetype")]
     public string? FileType { get; set; }
     [JsonPropertyName("tags")]

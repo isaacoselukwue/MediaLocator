@@ -10,6 +10,8 @@ namespace ML.Infrastructure.OpenVerse;
 
 public interface IOpenVerseService
 {
+    Task<AudioResult?> GetAudioDetailAsync(string audioId, CancellationToken cancellationToken);
+    Task<ImageResult?> GetImageDetailAsync(string imageId, CancellationToken cancellationToken);
     Task<ImageSearchResponse> SearchImagesAsync(
         string query,
         CancellationToken cancellationToken,

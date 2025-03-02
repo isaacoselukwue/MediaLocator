@@ -1,4 +1,6 @@
-﻿namespace ML.Application.Common.Models;
+﻿using System.Text.Json.Serialization;
+
+namespace ML.Application.Common.Models;
 public class Result
 {
     internal Result(bool succeeded, string message, IEnumerable<string> errors)
@@ -16,6 +18,10 @@ public class Result
 
 public class Result<T> : Result
 {
+    [JsonConstructor]
+    public Result() : base(false, string.Empty, [])
+    {
+    }
     internal Result(bool succeeded, string message, IEnumerable<string> errors, T data)
         : base(succeeded, message, errors)
     {

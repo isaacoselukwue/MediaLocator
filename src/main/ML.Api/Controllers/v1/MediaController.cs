@@ -13,12 +13,34 @@ namespace ML.Api.Controllers.v1
     {
         //search for audio
         [HttpGet("audio/search")]
-        public async Task<ActionResult<Result<AudioSearchDto>>> SearchAudio([FromQuery] AudioSearchQuery query) //configure swagger to recognise enum values
+        public async Task<ActionResult<Result<AudioSearchDto>>> SearchAudio([FromQuery] AudioSearchQuery query)
         {
             var result = await sender.Send(query);
             return Ok(result);
         }
-        //search for video
+        //search for image
+        [HttpGet("image/search")]
+        public async Task<ActionResult<Result<ImageSearchDto>>> SearchVideo([FromQuery] ImageSearchQuery query)
+        {
+            var result = await sender.Send(query);
+            return Ok(result);
+        }
+        //search for audio by id
+        [HttpGet("audio/{id}")]
+        public async Task<ActionResult<Result<AudioSearchDto>>> AudioDetails([FromRoute] string id)
+        {
+            AudioDetailsQuery query = new() { Id = id };
+            var result = await sender.Send(query);
+            return Ok(result);
+        }
+        //search for image by id
+        [HttpGet("image/{id}")]
+        public async Task<ActionResult<Result<ImageSearchDto>>> SearchImageById([FromRoute] string id)
+        {
+            ImageDetailsQuery query = new() { Id = id };
+            var result = await sender.Send(query);
+            return Ok(result);
+        }
 
         //add to search history - user
 
