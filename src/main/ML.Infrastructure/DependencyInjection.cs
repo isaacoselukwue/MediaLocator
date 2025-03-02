@@ -75,11 +75,11 @@ public static class DependencyInjection
                         .PersistKeysToDbContext<MLDbContext>()
                         .SetApplicationName("MediaLocatorApplicationService");
 
-        builder.Services.AddHttpClient("OpenVerse")
+        builder.Services.AddHttpClient("OpenVerseClient")
             .ConfigureHttpClient((sp, client) =>
             {
                 var configuration = sp.GetRequiredService<IConfiguration>();
-                client.BaseAddress = new Uri(configuration["OpenVerseSettings:BaseAddress"]!);
+                client.BaseAddress = new Uri(configuration["OpenVerseSettings:BaseUrl"]!);
             })
             .AddResilienceHandler("retry", pipeline =>
             {
