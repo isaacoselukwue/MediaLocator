@@ -5,7 +5,7 @@ using ML.Domain.Enums;
 
 namespace ML.Application.Media.Queries;
 
-public class ImageSearchQuery : IRequest<Result<ImageSearchDto>>
+public record ImageSearchQuery : IRequest<Result<ImageSearchDto>>
 {
     public string? SearchQuery { get; set; }
     public OpenLicenseEnum? License { get; set; }
@@ -41,7 +41,7 @@ public class ImageSearchDto
     public int Size { get; set; }
     public int TotalPages { get; set; }
     public int TotalResults { get; set; }
-    public List<ImageSearchResult> Results { get; set; } = new();
+    public List<ImageSearchResult> Results { get; set; } = [];
 }
 
 public class ImageSearchResult
@@ -61,4 +61,7 @@ public class ImageSearchResult
     public string? Category { get; set; }
     public string? FileType { get; set; }
     public string? ThumbNail { get; set; }
+    public string? Attribution { get; set; }
+    public int? FileSize { get; set; }
+    public string? RelatedUrl { get; set; }
 }

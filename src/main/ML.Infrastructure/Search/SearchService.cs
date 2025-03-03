@@ -7,8 +7,115 @@ using ML.Infrastructure.OpenVerse.DTOs;
 
 namespace ML.Infrastructure.Search;
 
-public class SearchService(HybridCache hybridCache, IOpenVerseService openVerseService) : ISearchService
+public class SearchService(HybridCache hybridCache, IMLDbContext mlDbContext, IJwtService jwtService, IOpenVerseService openVerseService) : ISearchService
 {
+    public async Task<Result> AddSearchHistory(string searchId, SearchTypeEnum searchType, CancellationToken cancellationToken)
+    {
+        if(searchType == SearchTypeEnum.Audio)
+            return await AddAudioSearch(searchId, cancellationToken);
+        else if (searchType == SearchTypeEnum.Image)
+            return await AddImageSearch(searchId, cancellationToken);
+        else
+            return Result.Failure("Invalid search type", ["Search type is not valid"]);
+    }
+    private async Task<Result> AddAudioSearch(string searchId, CancellationToken cancellationToken)
+    {
+        Result<AudioSearchResult> audioResult = await GetAudioDetails(searchId, cancellationToken);
+        if (!audioResult.Succeeded)
+            return Result.Failure("Audio details not found", ["Audio could not be retrieved"]);
+
+        if(await mlDbContext.SearchHistories.AnyAsync(x => x.SearchId == searchId, cancellationToken))
+            return Result.Success("Search history already saved!");
+
+        SearchHistories searchHistory = new()
+        {
+            Attribuition = audioResult.Data?.Attribution,
+            Category = audioResult.Data?.Category,
+            Created = DateTimeOffset.Now,
+            CreatedBy = jwtService.GetEmailAddress(),
+            Creator = audioResult.Data?.Creator,
+            CreatorUrl = audioResult.Data?.CreatorUrl,
+            FileSize = audioResult.Data?.FileSize,
+            FileType = audioResult.Data?.FileType,
+            ForeignLandingUrl = audioResult.Data?.ForeignLandingUrl,
+            Genres = audioResult.Data?.Genres is not null ? string.Join("|", audioResult.Data.Genres) : null,
+            IndexedOn = audioResult.Data?.IndexedOn,
+            LastModified = DateTimeOffset.Now,
+            LastModifiedBy = jwtService.GetEmailAddress(),
+            License = audioResult.Data?.License,
+            LicenseUrl = audioResult.Data?.LicenseUrl,
+            LicenseVersion = audioResult.Data?.LicenseVersion,
+            Provider = audioResult.Data?.Provider,
+            RelatedUrl = audioResult.Data?.RelatedUrl,
+            SearchId = searchId,
+            SearchType = SearchTypeEnum.Audio,
+            Source = audioResult.Data?.Source,
+            Status = StatusEnum.Active,
+            Title = audioResult.Data?.Title,
+            Url = audioResult.Data?.Url,
+            UserId = jwtService.GetUserId()
+        };
+        await mlDbContext.SearchHistories.AddAsync(searchHistory, cancellationToken);
+        await mlDbContext.SaveChangesAsync(cancellationToken);
+        return Result.Success("Search history added successfully");
+    }
+    private async Task<Result> AddImageSearch(string searchId, CancellationToken cancellationToken)
+    {
+        // Add search history
+        Result<ImageSearchResult> imageResult = await GetImageDetails(searchId, cancellationToken);
+        if (!imageResult.Succeeded)
+            return Result.Failure("Image details not found", ["Image could not be retrieved"]);
+
+        if (await mlDbContext.SearchHistories.AnyAsync(x => x.SearchId == searchId, cancellationToken))
+            return Result.Success("Search history already saved!");
+
+        SearchHistories searchHistory = new()
+        {
+            Attribuition = imageResult.Data?.Attribution,
+            Category = imageResult.Data?.Category,
+            Created = DateTimeOffset.Now,
+            CreatedBy = jwtService.GetEmailAddress(),
+            Creator = imageResult.Data?.Creator,
+            CreatorUrl = imageResult.Data?.CreatorUrl,
+            FileSize = imageResult.Data?.FileSize,
+            FileType = imageResult.Data?.FileType,
+            ForeignLandingUrl = imageResult.Data?.ForeignLandingUrl,
+            Genres = null,
+            IndexedOn = imageResult.Data?.IndexedOn,
+            LastModified = DateTimeOffset.Now,
+            LastModifiedBy = jwtService.GetEmailAddress(),
+            License = imageResult.Data?.License,
+            LicenseUrl = imageResult.Data?.LicenseUrl,
+            LicenseVersion = imageResult.Data?.LicenseVersion,
+            Provider = imageResult.Data?.Provider,
+            RelatedUrl = imageResult.Data?.RelatedUrl,
+            SearchId = searchId,
+            SearchType = SearchTypeEnum.Image,
+            Source = imageResult.Data?.Source,
+            Status = StatusEnum.Active,
+            ThumbNail = imageResult.Data?.ThumbNail,
+            Title = imageResult.Data?.Title,
+            Url = imageResult.Data?.Url,
+            UserId = jwtService.GetUserId()
+        };
+        await mlDbContext.SearchHistories.AddAsync(searchHistory, cancellationToken);
+        await mlDbContext.SaveChangesAsync(cancellationToken);
+        return Result.Success("Search history added successfully");
+    }
+    public async Task<Result> DeleteSearchHistory(Guid Id, CancellationToken cancellationToken)
+    {
+        Guid userId = jwtService.GetUserId();
+        SearchHistories? searchHistory = await mlDbContext.SearchHistories.FirstOrDefaultAsync(x => x.Id == Id && x.UserId == userId, cancellationToken);
+        if (searchHistory is null || searchHistory.Status != StatusEnum.Active)
+            return Result.Failure("Search history not found", ["Search history could not be found"]);
+
+        searchHistory.Status = StatusEnum.Deleted;
+        searchHistory.LastModified = DateTimeOffset.Now;
+        searchHistory.LastModifiedBy = jwtService.GetEmailAddress();
+
+        int update = await mlDbContext.SaveChangesAsync(cancellationToken);
+        return update > 0 ? Result.Success("Search history deleted successfully") : Result.Failure("Search history could not be deleted", ["An unexpected error occurred"]);
+    }
     public async Task<Result<AudioSearchResult>> GetAudioDetails(string audioId, CancellationToken cancellationToken)
     {
         string cacheKey = $"audio_detail_{audioId}";
@@ -31,17 +138,84 @@ public class SearchService(HybridCache hybridCache, IOpenVerseService openVerseS
         }, cancellationToken: cancellationToken);
         return result is null ? Result<ImageSearchResult>.Failure("We could not retrieve image at this time", ["An unexpected error occurred"]) : result;
     }
+    public async Task<Result<AdminSearchHistoryDto>> GetAdminSearchHistory(string? title, string? startDate, string? endDate, string? emailAddress, StatusEnum? status, bool isAscendingSorted, int pageNumber, CancellationToken cancellationToken)
+    {
+        IQueryable<SearchHistories> searchHistories = mlDbContext.SearchHistories;
+        if (!string.IsNullOrWhiteSpace(title))
+            searchHistories = searchHistories.Where(x => x.Title != null && x.Title.Contains(title));
+        if (!string.IsNullOrWhiteSpace(startDate))
+            searchHistories = searchHistories.Where(x => x.Created >= DateTimeOffset.Parse(startDate));
+        if (!string.IsNullOrWhiteSpace(endDate))
+            searchHistories = searchHistories.Where(x => x.Created <= DateTimeOffset.Parse(endDate).AddDays(-1));
+        if (!string.IsNullOrWhiteSpace(emailAddress))
+            searchHistories = searchHistories.Where(x => x.CreatedBy != null && x.CreatedBy.Contains(emailAddress));
+        if (status is not null && status.HasValue)
+            searchHistories = searchHistories.Where(x => x.Status == status);
+        if (status is null)
+            searchHistories = searchHistories.Where(x => x.Status == StatusEnum.Active);
+        if (isAscendingSorted)
+            searchHistories = searchHistories.OrderBy(x => x.Created);
+        else
+            searchHistories = searchHistories.OrderByDescending(x => x.Created);
+        int totalResults = await searchHistories.CountAsync(cancellationToken);
+        int pageSize = 20;
+        List<SearchHistories> searchHistoriesList = await searchHistories.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+        AdminSearchHistoryDto adminSearchHistoryDto = new()
+        {
+            Page = pageNumber,
+            Size = pageSize,
+            TotalPages = (int)Math.Ceiling((double)totalResults / pageSize),
+            TotalResults = totalResults,
+            Results = MapAdminSearchHistoryResult(searchHistoriesList)
+        };
+        return Result<AdminSearchHistoryDto>.Success("Successfully fetched search history", adminSearchHistoryDto);
+    }
+    public async Task<Result<UsersSearchHistoryDto>> GetUsersSearchHistory(string? title, string? startDate, string? endDate, bool isAscendingSorted, int pageNumber, CancellationToken cancellationToken)
+    {
+        IQueryable<SearchHistories> searchHistories = mlDbContext.SearchHistories.Where(x => x.UserId == jwtService.GetUserId() && x.Status == StatusEnum.Active);
+
+        if (!string.IsNullOrWhiteSpace(title))
+            searchHistories = searchHistories.Where(x => x.Title != null && x.Title.Contains(title));
+        if (!string.IsNullOrWhiteSpace(startDate))
+            searchHistories = searchHistories.Where(x => x.Created >= DateTimeOffset.Parse(startDate));
+        if (!string.IsNullOrWhiteSpace(endDate))
+            searchHistories = searchHistories.Where(x => x.Created <= DateTimeOffset.Parse(endDate).AddDays(-1));
+        if(string.IsNullOrWhiteSpace(endDate) && string.IsNullOrWhiteSpace(startDate))
+            searchHistories = searchHistories.Where(x => x.Created >= DateTimeOffset.UtcNow.AddDays(-30));
+        if (string.IsNullOrWhiteSpace(endDate) && !string.IsNullOrWhiteSpace(startDate))
+            searchHistories = searchHistories.Where(x => x.Created <= DateTimeOffset.UtcNow.AddDays(1));
+        if (isAscendingSorted)
+            searchHistories = searchHistories.OrderBy(x => x.Created);
+        else
+            searchHistories = searchHistories.OrderByDescending(x => x.Created);
+
+        int totalResults = await searchHistories.CountAsync(cancellationToken);
+        int pageSize = 20;
+
+        List<SearchHistories> searchHistoriesList = await searchHistories.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+
+        UsersSearchHistoryDto usersSearchHistoryDto = new()
+        {
+            Page = pageNumber,
+            Size = pageSize,
+            TotalPages = (int)Math.Ceiling((double)totalResults / pageSize),
+            TotalResults = totalResults,
+            Results = MapUserSearchHistoryResult(searchHistoriesList)
+        };
+        return Result<UsersSearchHistoryDto>.Success("Successfully fetched search history", usersSearchHistoryDto);
+
+    }
     public async Task<Result<AudioSearchDto>> SearchAudio(string searchQuery, OpenLicenseEnum? license, OpenLicenseTypeEnum? licenseType, OpenAudioCategoryEnum? category, int pageNumber, CancellationToken cancellationToken)
     {
         string licenseString = string.Empty;
         if (license is not null && license.HasValue)
-            licenseString = SearchEnumExtensions.GetOpenLicenseEnumString(license.Value);
+            licenseString = SearchExtensions.GetOpenLicenseEnumString(license.Value);
         string licenseTypeString = string.Empty;
         if (licenseType is not null && licenseType.HasValue)
-            licenseTypeString = SearchEnumExtensions.GetOpenLicenseTypeEnumString(licenseType.Value);
+            licenseTypeString = SearchExtensions.GetOpenLicenseTypeEnumString(licenseType.Value);
         string categoryString = string.Empty;
         if (category is not null && category.HasValue)
-            categoryString = SearchEnumExtensions.GetOpenAudioCategoryEnumString(category.Value);
+            categoryString = SearchExtensions.GetOpenAudioCategoryEnumString(category.Value);
 
         string cacheKey = $"audio_search_{searchQuery}_{licenseString}_{licenseTypeString}_{categoryString}_{pageNumber}";
 
@@ -58,13 +232,13 @@ public class SearchService(HybridCache hybridCache, IOpenVerseService openVerseS
     {
         string licenseString = string.Empty;
         if (license is not null && license.HasValue)
-            licenseString = SearchEnumExtensions.GetOpenLicenseEnumString(license.Value);
+            licenseString = SearchExtensions.GetOpenLicenseEnumString(license.Value);
         string licenseTypeString = string.Empty;
         if (licenseType is not null && licenseType.HasValue)
-            licenseTypeString = SearchEnumExtensions.GetOpenLicenseTypeEnumString(licenseType.Value);
+            licenseTypeString = SearchExtensions.GetOpenLicenseTypeEnumString(licenseType.Value);
         string categoryString = string.Empty;
         if (category is not null && category.HasValue)
-            categoryString = SearchEnumExtensions.GetOpenImageCategoryEnumString(category.Value);
+            categoryString = SearchExtensions.GetOpenImageCategoryEnumString(category.Value);
 
         string cacheKey = $"image_search_{searchQuery}_{licenseString}_{licenseTypeString}_{categoryString}_{pageNumber}";
 
@@ -102,7 +276,9 @@ public class SearchService(HybridCache hybridCache, IOpenVerseService openVerseS
                 Category = x.Category,
                 Genres = x.Genres,
                 FileSize = x.FileSize,
-                FileType = x.FileType
+                FileType = x.FileType,
+                RelatedUrl = x.RelatedUrl,
+                Attribution = x.Attribution
             })]
         };
         return audioSearchDto;
@@ -126,7 +302,9 @@ public class SearchService(HybridCache hybridCache, IOpenVerseService openVerseS
             Category = audioResult.Category,
             Genres = audioResult.Genres,
             FileSize = audioResult.FileSize,
-            FileType = audioResult.FileType
+            FileType = audioResult.FileType,
+            RelatedUrl = audioResult.RelatedUrl,
+            Attribution = audioResult.Attribution
         };
         return audioSearchResult;
     }
@@ -154,7 +332,10 @@ public class SearchService(HybridCache hybridCache, IOpenVerseService openVerseS
                 Source = x.Source,
                 Category = x.Category,
                 FileType = x.FileType,
-                ThumbNail = x.Thumbnail
+                ThumbNail = x.Thumbnail,
+                Attribution = x.Attribution,
+                FileSize = x.FileSize,
+                RelatedUrl = x.RelatedUrl
             })]
         };
         return audioSearchDto;
@@ -177,8 +358,66 @@ public class SearchService(HybridCache hybridCache, IOpenVerseService openVerseS
             Source = imageResult.Source,
             Category = imageResult.Category,
             FileType = imageResult.FileType,
-            ThumbNail = imageResult.Thumbnail
+            ThumbNail = imageResult.Thumbnail,
+            Attribution = imageResult.Attribution,
+            FileSize = imageResult.FileSize,
+            RelatedUrl = imageResult.RelatedUrl
         };
         return imageSearchResult;
+    }
+    private static List<UsersSearchHistoryResult> MapUserSearchHistoryResult(List<SearchHistories> searchHistories)
+    {
+        List<UsersSearchHistoryResult> usersSearchHistoryResults = [.. searchHistories.Select(history => new UsersSearchHistoryResult {
+            Id = history.Id,
+            Attribuition = history.Attribuition,
+            Category = history.Category,
+            Creator = history.Creator,
+            CreatorUrl = history.CreatorUrl,
+            FileSize = history.FileSize,
+            FileType = history.FileType,
+            ForeignLandingUrl = history.ForeignLandingUrl,
+            Genres = history.Genres,
+            IndexedOn = history.IndexedOn,
+            License = history.License,
+            LicenseUrl = history.LicenseUrl,
+            LicenseVersion = history.LicenseVersion,
+            Provider = history.Provider,
+            RelatedUrl = history.RelatedUrl,
+            SearchId = history.SearchId,
+            Source = history.Source,
+            ThumbNail = history.ThumbNail,
+            Title = history.Title,
+            Url = history.Url
+        })];
+        return usersSearchHistoryResults;
+    }
+    public static List<AdminSearchHistoryResult> MapAdminSearchHistoryResult(List<SearchHistories> searchHistories)
+    {
+        List<AdminSearchHistoryResult> adminSearchHistoryResults = [.. searchHistories.Select(history => new AdminSearchHistoryResult {
+            Id = history.Id,
+            SearchId = history.SearchId,
+            UserId = history.UserId,
+            UsersEmail = history.CreatedBy,
+            Status = history.Status,
+            Title = history.Title,
+            Url = history.Url,
+            Creator = history.Creator,
+            License = history.License,
+            Provider = history.Provider,
+            Attribuition = history.Attribuition,
+            RelatedUrl = history.RelatedUrl,
+            IndexedOn = history.IndexedOn,
+            ForeignLandingUrl = history.ForeignLandingUrl,
+            CreatorUrl = history.CreatorUrl,
+            LicenseVersion = history.LicenseVersion,
+            LicenseUrl = history.LicenseUrl,
+            Source = history.Source,
+            Category = history.Category,
+            Genres = history.Genres,
+            FileSize = history.FileSize,
+            FileType = history.FileType,
+            ThumbNail = history.ThumbNail
+        })];
+        return adminSearchHistoryResults;
     }
 }

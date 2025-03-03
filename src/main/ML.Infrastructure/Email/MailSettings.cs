@@ -10,4 +10,5 @@ public class MailSettings
     public bool UseAuthentication { get; set; }
     public bool UseSSL { get; set; }
     public bool UseStartTls { get; set; }
+    public string? BaseUrl { get; set; }
 }

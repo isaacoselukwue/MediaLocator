@@ -1,10 +1,11 @@
 ﻿using MediatR;
 using ML.Application.Common.Interfaces;
 using ML.Application.Common.Models;
+using ML.Domain.Enums;
 
 namespace ML.Application.Accounts.Commands;
 
-public class DeleteAccountCommand : IRequest<Result>
+public record DeleteAccountCommand : IRequest<Result>
 {
     public Guid UserId { get; set; }
     public bool IsPermanant { get; set; }
@@ -23,6 +24,8 @@ internal class DeleteAccountCommandHandler(IIdentityService identityService, IPu
     public async Task<Result> Handle(DeleteAccountCommand request, CancellationToken cancellationToken)
     {
         var result = await identityService.DeleteUserAsync(request.UserId.ToString(), request.IsPermanant);
-        return result;
+        if(result.Item1.Succeeded)
+            await publisher.Publish(new NotificationEvent(result.usersEmail!, "Sorry to see you go!", NotificationTypeEnum.DeleteAccountSuccess, []), cancellationToken);
+        return result.Item1;
     }
 }

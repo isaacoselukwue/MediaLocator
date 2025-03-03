@@ -30,7 +30,7 @@ internal class SignupCommandHandler(IIdentityService identityService, IPublisher
             {"token", result.token },
             {"userid", result.Item1.Message }
         };
-        await publisher.Publish(new NotificationEvent(request.EmailAddress!, "Account Activation!", NotificationTypeEnum.SignUpSuccess, emailData), cancellationToken);
+        await publisher.Publish(new NotificationEvent(request.EmailAddress!, "Account Activation!", NotificationTypeEnum.SignUpAccountActivation, emailData), cancellationToken);
         return Result.Success("Signup successful. Please check your mail for activation link.");
     }
 }

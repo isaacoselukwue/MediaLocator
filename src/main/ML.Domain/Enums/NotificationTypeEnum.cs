@@ -1,9 +1,14 @@
 ﻿namespace ML.Domain.Enums;
 public enum NotificationTypeEnum
 {
-    SignUpSuccess = 1,
-    SignUpActivationSuccess,
+    SignUpAccountActivation = 1,
+    SignUpCompleted,
     SignUpFailure,
-    LoginSuccess,
-    LoginFailure
+    SignInSuccess,
+    SignInBlockedAccount,
+    DeleteAccountSuccess,
+    DeactivateAccountSuccess,
+    ChangeRoleSuccess,
+    ChangePasswordSuccess,
+    AccountActivationAdmin
 }

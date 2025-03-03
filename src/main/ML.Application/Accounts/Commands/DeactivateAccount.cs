@@ -5,7 +5,7 @@ using ML.Domain.Enums;
 
 namespace ML.Application.Accounts.Commands;
 
-public class DeactivateAccountCommand : IRequest<Result>
+public record DeactivateAccountCommand : IRequest<Result>
 {
 }
 
@@ -16,7 +16,7 @@ internal class DeactivateAccountCommandHandler(IIdentityService identityService,
         var result = await identityService.DeactivateAccountAsync();
         if(result.Item1.Succeeded)
         {
-            await publisher.Publish(new NotificationEvent(result.usersEmail, "Sorry To See You Go!", NotificationTypeEnum.SignUpSuccess, []), cancellationToken);
+            await publisher.Publish(new NotificationEvent(result.usersEmail, "Sorry To See You Go!", NotificationTypeEnum.DeactivateAccountSuccess, []), cancellationToken);
         }
         return result.Item1;
     }

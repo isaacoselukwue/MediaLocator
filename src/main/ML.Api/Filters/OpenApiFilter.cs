@@ -84,6 +84,10 @@ public class OpenApiFilter : IOpenApiDocumentTransformer
                         {
                             ApplyEnumToParameter(parameter, typeof(OpenAudioCategoryEnum));
                         }
+                        else if (parameter.Name.Equals("Status", StringComparison.OrdinalIgnoreCase))
+                        {
+                            ApplyEnumToParameter(parameter, typeof(StatusEnum));
+                        }
                     }
                 }
             }

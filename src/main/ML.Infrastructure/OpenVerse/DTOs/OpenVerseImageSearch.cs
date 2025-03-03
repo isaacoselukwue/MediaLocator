@@ -51,8 +51,8 @@ public class ImageResult
     public string? Source { get; set; }
     [JsonPropertyName("category")]
     public string? Category { get; set; }
-    //[JsonPropertyName("filesize")]
-    //public int? FileSize { get; set; }
+    [JsonPropertyName("filesize")]
+    public int? FileSize { get; set; }
     [JsonPropertyName("filetype")]
     public string? FileType { get; set; }
     [JsonPropertyName("tags")]
@@ -73,6 +73,8 @@ public class ImageResult
     public string? RelatedUrl { get; set; }
     [JsonPropertyName("unstable__sensitivity")]
     public List<string>? UnstableSensitivity { get; set; }
+    [JsonPropertyName("attribution")]
+    public string? Attribution { get; set; }
 }
 
 public class ImageTag

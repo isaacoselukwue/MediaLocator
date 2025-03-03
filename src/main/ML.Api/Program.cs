@@ -7,6 +7,7 @@ using ML.Api.Services;
 using ML.Application;
 using ML.Application.Common.Interfaces;
 using ML.Infrastructure;
+using ML.Infrastructure.Data;
 using Scalar.AspNetCore;
 using Serilog;
 using System.IO.Compression;
@@ -115,6 +116,7 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
 });
 
 
+bool seedDatabase = builder.Configuration.GetValue<bool>("SeedDatabase");
 
 var app = builder.Build();
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
@@ -134,7 +136,10 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-
+if(seedDatabase)
+{
+    await app.InitialiseDatabaseAsync();
+}
 
 app.UseHttpsRedirection();
 

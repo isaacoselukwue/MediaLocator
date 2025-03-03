@@ -2,10 +2,11 @@
 using ML.Application.Common.Interfaces;
 using ML.Application.Common.Models;
 using ML.Domain.Constants;
+using ML.Domain.Enums;
 
 namespace ML.Application.Accounts.Commands;
 
-public class ChangeUserRoleCommand : IRequest<Result>
+public record ChangeUserRoleCommand : IRequest<Result>
 {
     public Guid UserId { get; set; }
     public string? Role { get; set; }
@@ -29,7 +30,10 @@ internal class ChangeUserRoleCommandHandler(IIdentityService identityService, IP
     public async Task<Result> Handle(ChangeUserRoleCommand request, CancellationToken cancellationToken)
     {
         var (result, email) = await identityService.ChangeUserRoleAsync(request.UserId.ToString(), request.Role!);
-
+        if(result.Succeeded)
+        {
+            await publisher.Publish(new NotificationEvent(email, "Role Changed", NotificationTypeEnum.ChangeRoleSuccess, []), cancellationToken);
+        }
         return result;
     }
 }
