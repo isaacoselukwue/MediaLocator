@@ -7,6 +7,6 @@ public class NotificationEvent(string receiver, string subject, NotificationType
 {
     public string Receiver { get; } = receiver;
     public string? Subject { get; } = subject;
-    public Dictionary<string, string>? Replacements { get; } = replacements;
+    public Dictionary<string, string> Replacements { get; } = replacements;
     public NotificationTypeEnum NotificationType { get; } = notificationType;
 }

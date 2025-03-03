@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using ML.Application.Common.Interfaces;
 using ML.Application.Common.Models;
+using ML.Domain.Enums;
 
 namespace ML.Application.Accounts.Queries;
 
@@ -32,6 +33,7 @@ internal class UserAccountQueryHandler(IIdentityService identityService) : IRequ
             FirstName = x.FirstName,
             LastName = x.LastName,
             PhoneNumber = x.PhoneNumber,
+            Status = x.UsersStatus,
             UserId = x.Id
         })
             .Skip((request.PageNumber - 1) * request.PageCount)
@@ -50,4 +52,5 @@ public class UserAccountDto
     public string? EmailAddress { get; set; }
     public string? PhoneNumber { get; set; }
     public DateTimeOffset DateAccountCreated { get; set; }
+    public StatusEnum Status { get; set; }
 }

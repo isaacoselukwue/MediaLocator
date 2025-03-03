@@ -2,7 +2,7 @@
 
 namespace ML.Infrastructure.Search;
 
-public class SearchEnumExtensions
+public class SearchExtensions
 {
     public static string GetOpenLicenseEnumString(OpenLicenseEnum openLicenseEnum)
     {

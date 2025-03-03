@@ -62,4 +62,6 @@ public class AudioSearchResult
     public List<string> Genres { get; set; } = [];
     public int? FileSize { get; set; }
     public string? FileType { get; set; }
+    public string? RelatedUrl { get; set; }
+    public string? Attribution { get; set; }
 }
