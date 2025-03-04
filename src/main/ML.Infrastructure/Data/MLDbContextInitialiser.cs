@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Logging;
 using ML.Domain.Constants;
+using ML.Domain.Entities;
 using ML.Domain.Enums;
+using System.Security.Claims;
 
 namespace ML.Infrastructure.Data;
 
@@ -68,6 +70,7 @@ public class MLDbContextInitialiser(ILogger<MLDbContextInitialiser> logger, MLDb
             }
         }
 
+
         Users administrator = new()
         {
             Created = DateTimeOffset.Now,
@@ -81,13 +84,17 @@ public class MLDbContextInitialiser(ILogger<MLDbContextInitialiser> logger, MLDb
             PhoneNumberConfirmed = true,
             UsersStatus = StatusEnum.Active
         };
-        
+        administrator.UserName = administrator.Email;
 
         if (_userManager.Users.All(u => u.UserName != administrator.UserName))
         {
-            await _userManager.CreateAsync(administrator, "Administrator1!");
+            IdentityResult identityResult = await _userManager.CreateAsync(administrator, "Administrator1!");
+            _logger.LogInformation("Result from created admin is: {identityResult}", identityResult);
             List<string> availableRoles = [.. defaultRoles.Select(r => r.Name).Where(roleName => !string.IsNullOrWhiteSpace(roleName))];
-            await _userManager.AddToRolesAsync(administrator, availableRoles);
+            identityResult = await _userManager.AddToRolesAsync(administrator, availableRoles);
+            _logger.LogInformation("Result from adding admin to roles is: {identityResult}", identityResult);
+            identityResult = await _userManager.AddClaimAsync(administrator, new Claim("Permission", "CanView"));
+            _logger.LogInformation("Result from adding claims to admin is: {identityResult}", identityResult);
         }
     }
 }

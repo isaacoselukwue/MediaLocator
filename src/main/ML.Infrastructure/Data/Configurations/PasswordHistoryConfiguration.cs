@@ -15,10 +15,10 @@ public class PasswordHistoryConfiguration : IEntityTypeConfiguration<PasswordHis
             .HasMaxLength(256);
         builder.Property(e => e.Created)
             .IsRequired()
-            .HasDefaultValueSql("GETDATE()");
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
         builder.Property(e => e.LastModified)
             .IsRequired()
-            .HasDefaultValueSql("GETDATE()");
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
         builder.HasOne(e => e.User)
             .WithMany()
             .HasForeignKey(e => e.UserId)

@@ -21,6 +21,8 @@ internal class LoginCommandHandler (IIdentityService identityService, IPublisher
         {
             await publisher.Publish(new NotificationEvent(request.EmailAddress!, "Account Temporarily Disabled!", NotificationTypeEnum.SignInBlockedAccount, []), cancellationToken);
         }
+        if (!result.Succeeded)
+            return result;
         Dictionary<string, string> emailData = new()
         {
             {"date", DateTime.UtcNow.ToString("dd-MMM-yyyy") },

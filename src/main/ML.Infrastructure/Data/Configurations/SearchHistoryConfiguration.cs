@@ -42,10 +42,10 @@ public class SearchHistoryConfiguration : IEntityTypeConfiguration<SearchHistori
             .HasDefaultValue(StatusEnum.Active);
         builder.Property(e => e.Created)
             .IsRequired()
-            .HasDefaultValue(DateTimeOffset.UtcNow);
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
         builder.Property(e => e.LastModified)
             .IsRequired()
-            .HasDefaultValue(DateTimeOffset.UtcNow);
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
         builder.HasOne(e => e.User)
             .WithMany()
             .HasForeignKey(e => e.UserId)
