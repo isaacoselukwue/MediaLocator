@@ -2,8 +2,6 @@
 using MailKit.Security;
 using Microsoft.Extensions.Options;
 using MimeKit;
-using ML.Application.Common.Interfaces;
-using ML.Domain.Enums;
 using ML.Domain.Events;
 
 namespace ML.Infrastructure.Email;
@@ -24,6 +22,8 @@ internal class EmailService(IOptions<MailSettings> mailSettings) : IEmailService
         BodyBuilder body = new();
         mail.Subject = notification.Subject;
         string templateName = notification.NotificationType.ToString();
+        notification.Replacements.TryAdd("{{year}}", DateTime.Now.Year.ToString());
+        notification.Replacements.TryAdd("{{LinkToWebApp}}", mailSettings?.BaseUrl ?? "");
         string emailContent = LoadAndReplaceTemplate(templateName, notification.Replacements ?? []);
         body.HtmlBody = emailContent;
         mail.Body = body.ToMessageBody();
@@ -34,13 +34,15 @@ internal class EmailService(IOptions<MailSettings> mailSettings) : IEmailService
 
         using SmtpClient smtp = new();
 
+        smtp.ServerCertificateValidationCallback = (s, c, h, e) => true;
+
         if (mailSettings!.UseSSL)
         {
             await smtp.ConnectAsync(mailSettings.Host, mailSettings.Port, SecureSocketOptions.SslOnConnect, cancellationToken);
         }
         else if (mailSettings.UseStartTls)
         {
-            await smtp.ConnectAsync(mailSettings.Host, mailSettings.Port, SecureSocketOptions.None, cancellationToken);
+            await smtp.ConnectAsync(mailSettings.Host, mailSettings.Port, SecureSocketOptions.StartTls, cancellationToken);
         }
         else
         {
@@ -54,15 +56,7 @@ internal class EmailService(IOptions<MailSettings> mailSettings) : IEmailService
 
         #endregion
     }
-    private static string FetchMailType(NotificationTypeEnum notificationType)
-    {
-        Guid test = Guid.CreateVersion7();
-        return notificationType switch
-        {
-            NotificationTypeEnum.LoginSuccess => "Email",
-            _ => "Unknown"
-        };
-    }
+
 
     private static string LoadAndReplaceTemplate(string templateName, Dictionary<string, string> replacements)
     {

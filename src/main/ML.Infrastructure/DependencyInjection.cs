@@ -10,11 +10,17 @@ global using ML.Infrastructure.Data.Interceptors;
 global using ML.Infrastructure.Email;
 global using ML.Infrastructure.Identity;
 global using Polly;
+using MassTransit;
+using MassTransit.Logging;
+using MediatR;
 using ML.Infrastructure.OpenVerse;
+using ML.Infrastructure.Queue;
+using ML.Infrastructure.Search;
 using Npgsql;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Polly.Retry;
+using System.Diagnostics;
 
 namespace ML.Infrastructure;
 
@@ -47,7 +53,8 @@ public static class DependencyInjection
                         );
                 });
         });
-
+        builder.Services.AddScoped<MLDbContextInitialiser>();
+        builder.Services.AddScoped<IMLDbContext>(provider => provider.GetRequiredService<MLDbContext>());
         builder.Services.AddIdentityCore<Users>(
             options =>
             {
@@ -74,11 +81,11 @@ public static class DependencyInjection
                         .PersistKeysToDbContext<MLDbContext>()
                         .SetApplicationName("MediaLocatorApplicationService");
 
-        builder.Services.AddHttpClient("OpenVerse")
+        builder.Services.AddHttpClient("OpenVerseClient")
             .ConfigureHttpClient((sp, client) =>
             {
                 var configuration = sp.GetRequiredService<IConfiguration>();
-                client.BaseAddress = new Uri(configuration["OpenVerseSettings:BaseAddress"]!);
+                client.BaseAddress = new Uri(configuration["OpenVerseSettings:BaseUrl"]!);
             })
             .AddResilienceHandler("retry", pipeline =>
             {
@@ -108,6 +115,8 @@ public static class DependencyInjection
             .WithTracing(tracing =>
             {
                 tracing
+                .AddSource(DiagnosticHeaders.DefaultListenerName)
+                .AddSource("MassTransit")
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddEntityFrameworkCoreInstrumentation()
@@ -122,6 +131,10 @@ public static class DependencyInjection
 
         //builder.Services.AddMemoryCache();
 #pragma warning disable EXTEXP0018 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+        //builder.Services.AddStackExchangeRedisCache(options =>
+        //{
+        //    options.Configuration = builder.Configuration.GetConnectionString("RedisConnection");
+        //});
         builder.Services.AddHybridCache(options =>
         {
             options.MaximumPayloadBytes = 1024 * 1024 * 20;
@@ -147,5 +160,56 @@ public static class DependencyInjection
 
         builder.Services.Configure<OpenVerseSettings>(builder.Configuration.GetSection("OpenVerseSettings"));
         builder.Services.AddTransient<IOpenVerseService, OpenVerseService>();
+
+        builder.Services.AddTransient<ISearchService, SearchService>();
+
+        builder.Services.AddMassTransit(config =>
+        {
+            config.UsingRabbitMq((context, cfg) =>
+            {
+                RabbitMqSettings queueSettings = builder.Configuration.GetSection("RabbitMqSettings").Get<RabbitMqSettings>()!;
+
+                cfg.Host(queueSettings.Host, "/", h =>
+                {
+                    h.Username(queueSettings.Username!);
+                    h.Password(queueSettings.Password!);
+                });
+
+                cfg.ConfigureEndpoints(context);
+                cfg.UseInstrumentation();
+            });
+        });
+        builder.Services.AddScoped<IPublisher, MassTransitEventPublisher>();
+    }
+
+    public static void AddInfrastructureWorkerServices(this IHostApplicationBuilder builder)
+    {
+        string serviceName = builder.Configuration["OpenTelemetry:ServiceName"] ?? "MediaLocatorWorker";
+        builder.Services
+            .AddOpenTelemetry()
+            .ConfigureResource(resource => resource.AddService(serviceName))
+            .WithTracing(tracing =>
+            {
+                tracing
+                .AddSource(DiagnosticHeaders.DefaultListenerName)
+                .AddSource("MassTransit")
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddEntityFrameworkCoreInstrumentation()
+                    .AddRedisInstrumentation()
+                    .AddNpgsql();
+
+                tracing.AddOtlpExporter(exporter =>
+                {
+                    exporter.Endpoint = new Uri(builder.Configuration["OpenTelemetry:OtlpEndpoint"] ?? "http://localhost:4317");
+                });
+            });
+
+
+
+        builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
+        builder.Services.AddTransient<IEmailService, EmailService>();
+
+        builder.Services.AddSingleton(TimeProvider.System);
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -7,6 +8,7 @@ using ML.Api.Services;
 using ML.Application;
 using ML.Application.Common.Interfaces;
 using ML.Infrastructure;
+using ML.Infrastructure.Data;
 using Scalar.AspNetCore;
 using Serilog;
 using System.IO.Compression;
@@ -76,12 +78,15 @@ builder.Services.AddAuthentication(authentication =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["AppSettings:UrlSettings:FrontendBaseUrl"] ?? "www.medialocator.com",
-        ValidAudience = "client",
-        //IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(securityKey)),
+        ValidIssuer = builder.Configuration["JwtSettings:Issuer"]!,
+        ValidAudience = builder.Configuration["JwtSettings:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(securityKey)),
         ClockSkew = TimeSpan.Zero
     };
-});
+})
+.AddCookie(IdentityConstants.ApplicationScheme)
+.AddCookie(IdentityConstants.ExternalScheme)
+.AddCookie(IdentityConstants.TwoFactorUserIdScheme);
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("UserPolicy", pb =>
@@ -90,6 +95,12 @@ builder.Services.AddAuthorizationBuilder()
             .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
             .AddRequirements()
             .RequireRole("User");
+    })
+    .AddPolicy("AdminPolicy", pb => {
+        pb.RequireAuthenticatedUser()
+            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+            .AddRequirements()
+            .RequireRole("Admin");
     });
 
 builder.Services.AddResponseCompression(options =>
@@ -109,9 +120,10 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
 });
 
 
+bool seedDatabase = builder.Configuration.GetValue<bool>("SeedDatabase");
 
 var app = builder.Build();
-//app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
+app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -128,7 +140,10 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-
+if(seedDatabase)
+{
+    await app.InitialiseDatabaseAsync();
+}
 
 app.UseHttpsRedirection();
 

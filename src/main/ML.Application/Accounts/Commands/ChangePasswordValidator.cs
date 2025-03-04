@@ -1,8 +1,8 @@
 ﻿namespace ML.Application.Accounts.Commands;
 
-public class ChangePasswordCommandValidator : AbstractValidator<ChangePasswordCommand>
+public class ChangePasswordValidator : AbstractValidator<ChangePasswordCommand>
 {
-    public ChangePasswordCommandValidator()
+    public ChangePasswordValidator()
     {
         RuleFor(x=>x.NewPassword).NotEmpty();
         RuleFor(x => x.ConfirmNewPassword).Equal(x => x.NewPassword);

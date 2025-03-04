@@ -1,4 +1,5 @@
-internal class ImageSearchResponse
+namespace ML.Infrastructure.OpenVerse.DTOs;
+public class ImageSearchResponse
 {
     [JsonPropertyName("result_count")]
     public int ResultCount { get; set; }
@@ -9,12 +10,12 @@ internal class ImageSearchResponse
     [JsonPropertyName("page")]
     public int Page { get; set; }
     [JsonPropertyName("results")]
-    public List<ImageResult>? Results { get; set; }
+    public List<ImageResult> Results { get; set; } = [];
     [JsonPropertyName("warnings")]
     public List<ImageSearchWarning>? Warnings { get; set; }
 }
 
-internal class ImageSearchWarning
+public class ImageSearchWarning
 {
     [JsonPropertyName("code")]
     public string? Code { get; set; }
@@ -22,7 +23,7 @@ internal class ImageSearchWarning
     public string? Message { get; set; }
 }
 
-internal class ImageResult
+public class ImageResult
 {
     [JsonPropertyName("id")]
     public string? Id { get; set; }
@@ -72,9 +73,11 @@ internal class ImageResult
     public string? RelatedUrl { get; set; }
     [JsonPropertyName("unstable__sensitivity")]
     public List<string>? UnstableSensitivity { get; set; }
+    [JsonPropertyName("attribution")]
+    public string? Attribution { get; set; }
 }
 
-internal class ImageTag
+public class ImageTag
 {
     [JsonPropertyName("name")]
     public string? Name { get; set; }

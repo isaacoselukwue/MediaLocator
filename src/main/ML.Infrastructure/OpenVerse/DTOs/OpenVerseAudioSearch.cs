@@ -1,6 +1,8 @@
 global using System.Text.Json.Serialization;
 
-internal class AudioSearchResponse
+namespace ML.Infrastructure.OpenVerse.DTOs;
+
+public class AudioSearchResponse
 {
     [JsonPropertyName("result_count")]
     public int ResultCount { get; set; }
@@ -11,12 +13,12 @@ internal class AudioSearchResponse
     [JsonPropertyName("page")]
     public int Page { get; set; }
     [JsonPropertyName("results")]
-    public List<AudioResult>? Results { get; set; }
+    public List<AudioResult> Results { get; set; } = [];
     [JsonPropertyName("warnings")]
     public List<AudioSearchWarning>? Warnings { get; set; }
 }
 
-internal class AudioSearchWarning
+public class AudioSearchWarning
 {
     [JsonPropertyName("code")]
     public string? Code { get; set; }
@@ -24,7 +26,7 @@ internal class AudioSearchWarning
     public string? Message { get; set; }
 }
 
-internal class AudioResult
+public class AudioResult
 {
     [JsonPropertyName("id")]
     public string? Id { get; set; }
@@ -53,7 +55,7 @@ internal class AudioResult
     [JsonPropertyName("category")]
     public string? Category { get; set; }
     [JsonPropertyName("genres")]
-    public List<string>? Genres { get; set; }
+    public List<string> Genres { get; set; } = [];
     [JsonPropertyName("filesize")]
     public int? FileSize { get; set; }
     [JsonPropertyName("filetype")]
@@ -88,7 +90,7 @@ internal class AudioResult
     public List<string>? UnstableSensitivity { get; set; }
 }
 
-internal class AudioTag
+public class AudioTag
 {
     [JsonPropertyName("name")]
     public string? Name { get; set; }
@@ -98,7 +100,7 @@ internal class AudioTag
     public string? UnstableProvider { get; set; }
 }
 
-internal class AudioAltFile
+public class AudioAltFile
 {
     [JsonPropertyName("url")]
     public string? Url { get; set; }
@@ -112,7 +114,7 @@ internal class AudioAltFile
     public int? SampleRate { get; set; }
 }
 
-internal class AudioSet
+public class AudioSet
 {
     [JsonPropertyName("title")]
     public string? Title { get; set; }
