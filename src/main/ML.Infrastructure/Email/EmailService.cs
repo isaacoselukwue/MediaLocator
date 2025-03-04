@@ -34,13 +34,15 @@ internal class EmailService(IOptions<MailSettings> mailSettings) : IEmailService
 
         using SmtpClient smtp = new();
 
+        smtp.ServerCertificateValidationCallback = (s, c, h, e) => true;
+
         if (mailSettings!.UseSSL)
         {
             await smtp.ConnectAsync(mailSettings.Host, mailSettings.Port, SecureSocketOptions.SslOnConnect, cancellationToken);
         }
         else if (mailSettings.UseStartTls)
         {
-            await smtp.ConnectAsync(mailSettings.Host, mailSettings.Port, SecureSocketOptions.None, cancellationToken);
+            await smtp.ConnectAsync(mailSettings.Host, mailSettings.Port, SecureSocketOptions.StartTls, cancellationToken);
         }
         else
         {
