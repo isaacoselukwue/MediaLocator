@@ -1,12 +1,16 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using ML.Application.Accounts.Queries;
 using ML.Application.Authentication.Commands.Login;
-using ML.Application.Common.Interfaces;
 using ML.Application.Common.Models;
 using ML.Domain.Constants;
 using System.Security.Claims;
+using System.Web;
 
 namespace ML.Infrastructure.Identity;
-internal class IdentityService(SignInManager<Users> signInManager, UserManager<Users> userManager, IJwtService jwtService, IMLDbContext mlDbContext) : IIdentityService
+internal class IdentityService( 
+    SignInManager<Users> signInManager, 
+    UserManager<Users> userManager, 
+    IJwtService jwtService, 
+    IMLDbContext mlDbContext) : IIdentityService
 {
     public async Task<(Result, string email)> ActivateAccountAsync(Guid userId)
     {
@@ -87,6 +91,29 @@ internal class IdentityService(SignInManager<Users> signInManager, UserManager<U
         }
         return (Result.Success(ResultMessage.DeactivateAccountSuccess), user.Email!);
     }
+
+    public async Task<(Result, string usersEmail)> DeactivateAccountAsync(Guid userId)
+    {
+        Users? user = await userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return (Result.Failure(ResultMessage.DeactivateAccountFailed, ["Invalid user"]), string.Empty);
+        }
+        if (user.UsersStatus != Domain.Enums.StatusEnum.Active)
+            return (Result.Failure(ResultMessage.DeactivateAccountFailed, ["Account is not active"]), string.Empty);
+
+        user.UsersStatus = Domain.Enums.StatusEnum.InActive;
+        user.LastModified = DateTimeOffset.UtcNow;
+        user.LastModifiedBy = jwtService.GetEmailAddress();
+
+        IdentityResult result = await userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+        {
+            return (result.ToApplicationResult(ResultMessage.DeactivateAccountFailed), string.Empty);
+        }
+        return (Result.Success(ResultMessage.DeactivateAccountSuccess), user.Email!);
+    }
+
     public async Task<(Result, string usersEmail)> DeleteUserAsync(string userId, bool isPermanant)
     {
         Users? user = await userManager.FindByIdAsync(userId);
@@ -118,6 +145,22 @@ internal class IdentityService(SignInManager<Users> signInManager, UserManager<U
             return (result.ToApplicationResult(ResultMessage.DeleteAccountFailed), string.Empty);
         }
         return (Result.Success(ResultMessage.DeleteAccountSuccess), user.Email!);
+    }
+    public async Task<(Result result, string emailAddress)> InitiateForgotPasswordAsync(string emailAddress)
+    {
+        Users? user = await userManager.FindByEmailAsync(emailAddress);
+        if (user is null)
+        {
+            return (Result.Success(ResultMessage.ForgotPasswordSuccess), string.Empty);
+        }
+        if (user.UsersStatus != Domain.Enums.StatusEnum.Active)
+            return (Result.Success(ResultMessage.ForgotPasswordSuccess), string.Empty);
+
+        string token = await userManager.GeneratePasswordResetTokenAsync(user);
+        await userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(30));
+
+        string encodedToken = HttpUtility.UrlEncode(token);
+        return (Result.Success(user.Id.ToString()), encodedToken);
     }
     private async Task LogPasswordChangeHistoryAsync(string userId, string newPasswordHash)
     {
@@ -164,6 +207,25 @@ internal class IdentityService(SignInManager<Users> signInManager, UserManager<U
 
         return tokenResult;
     }
+
+    public async Task<(Result result, string emailAddress)> ResetPasswordAsync(string newPassword, string userId, string passwordResetToken)
+    {
+        Users? users = await userManager.FindByIdAsync(userId);
+        if (users is null)
+        {
+            return (Result.Failure(ResultMessage.ResetPasswordFailed, ["Invalid user"]), string.Empty);
+        }
+
+        IdentityResult result = await userManager.ResetPasswordAsync(users, passwordResetToken, newPassword);
+        if (!result.Succeeded)
+        {
+            return (result.ToApplicationResult(ResultMessage.ResetPasswordFailed), string.Empty);
+        }
+
+        await userManager.SetLockoutEndDateAsync(users, DateTimeOffset.UtcNow);
+        return (Result.Success(ResultMessage.ResetPasswordSuccess), users.Email!);
+    }
+
     public async Task<Result> RevokeRefreshUserTokenAsync(string encryptedToken)
     {
         (string token, string userId) = jwtService.UnprotectToken(encryptedToken);
@@ -172,10 +234,10 @@ internal class IdentityService(SignInManager<Users> signInManager, UserManager<U
         {
             return Result.Failure(ResultMessage.TokenRefreshFailed, ["Invalid user"]);
         }
-        if (user.UsersStatus != Domain.Enums.StatusEnum.Active)
-        {
-            return Result.Failure(ResultMessage.TokenRefreshFailed, ["Account is not active"]);
-        }
+        //if (user.UsersStatus != Domain.Enums.StatusEnum.Active)
+        //{
+        //    return Result.Failure(ResultMessage.TokenRefreshFailed, ["Account is not active"]);
+        //}
 
         string? validToken = await userManager.GetAuthenticationTokenAsync(user, "MediaLocator", "RefreshToken");
         if (validToken != encryptedToken)
@@ -258,10 +320,32 @@ internal class IdentityService(SignInManager<Users> signInManager, UserManager<U
         await LogPasswordChangeHistoryAsync(user.Id.ToString(), user.PasswordHash!);
 
         string token = await userManager.GenerateEmailConfirmationTokenAsync(user);
-
-        return (result.ToApplicationResult(user.Id.ToString()), token);
+        string encodedToken = HttpUtility.UrlEncode(token);
+        return (result.ToApplicationResult(user.Id.ToString()), encodedToken);
     }
     public IQueryable<Users> UserAccounts() => userManager.Users;
+    public IQueryable<UserAccountResult> UserAccountWithRoles()
+    {
+        var userAccounts = from user in mlDbContext.Users
+                           join userRole in mlDbContext.UserRoles on user.Id equals userRole.UserId
+                           join role in mlDbContext.Roles on userRole.RoleId equals role.Id
+                           group role by user into userGroup
+                           select new UserAccountResult
+                           {
+                               UserId = userGroup.Key.Id,
+                               FirstName = userGroup.Key.FirstName,
+                               LastName = userGroup.Key.LastName,
+                               EmailAddress = userGroup.Key.Email,
+                               PhoneNumber = userGroup.Key.PhoneNumber,
+                               DateAccountCreated = userGroup.Key.Created,
+                               Status = userGroup.Key.UsersStatus,
+                               Roles = userGroup.Select(r => r.Name!).ToList()
+                           };
+
+        return userAccounts;
+    }
+
+
     public async Task<(Result, string usersEmail)> ValidateSignupAsync(string userId, string activationToken)
     {
         Users? user = await userManager.FindByIdAsync(userId);
@@ -282,6 +366,10 @@ internal class IdentityService(SignInManager<Users> signInManager, UserManager<U
         {
             return (result.ToApplicationResult(ResultMessage.SignUpFailed), string.Empty);
         }
+        user.UsersStatus = Domain.Enums.StatusEnum.Active;
+        user.LastModified = DateTimeOffset.UtcNow;
+        user.LastModifiedBy = user.Email;
+        await userManager.UpdateAsync(user);
         return (Result.Success(ResultMessage.SignUpSuccess), user.Email!);
     }
 }

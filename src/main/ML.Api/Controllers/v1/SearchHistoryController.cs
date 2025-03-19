@@ -1,14 +1,16 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using ML.Application.Common.Models;
+using ML.Domain.Entities;
 using ML.Domain.Enums;
 using ML.Domain.Events;
 
 namespace ML.Api.Controllers.v1;
 [ApiController]
 [AllowAnonymous]
-public class SearchHistoryController(IPublisher publisher) : BaseController
+public class SearchHistoryController(IPublisher publisher, UserManager<Users> userManager) : BaseController
 {
 
     [HttpGet]
@@ -18,7 +20,14 @@ public class SearchHistoryController(IPublisher publisher) : BaseController
         return Ok();
     }
     //add to search history - user
-
+    [HttpPost("test")]
+    public async ValueTask<ActionResult<string>> TestAuth()
+    {
+        Users user = await userManager.FindByEmailAsync("princeizak@live.com") ?? new();
+        //await userManager.
+        await Task.CompletedTask;
+        return Ok();
+    }
     //fetch search history - user
 
     //delete search history - user

@@ -66,8 +66,8 @@ namespace ML.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Attribuition")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<string>("Category")
                         .HasMaxLength(200)

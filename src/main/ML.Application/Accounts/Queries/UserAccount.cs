@@ -3,10 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using ML.Application.Common.Interfaces;
 using ML.Application.Common.Models;
 using ML.Domain.Enums;
+using System.Linq;
 
 namespace ML.Application.Accounts.Queries;
 
-public record UserAccountQuery : IRequest<Result<List<UserAccountDto>>>
+public record UserAccountQuery : IRequest<Result<UserAccountDto>>
 {
     public int PageNumber { get; set; }
     public int PageCount { get; set; }
@@ -21,31 +22,53 @@ public class UserAccountValidator : AbstractValidator<UserAccountQuery>
     }
 }
 
-internal class UserAccountQueryHandler(IIdentityService identityService) : IRequestHandler<UserAccountQuery, Result<List<UserAccountDto>>>
+internal class UserAccountQueryHandler(IIdentityService identityService) : IRequestHandler<UserAccountQuery, Result<UserAccountDto>>
 {
-    public async Task<Result<List<UserAccountDto>>> Handle(UserAccountQuery request, CancellationToken cancellationToken)
+    public async Task<Result<UserAccountDto>> Handle(UserAccountQuery request, CancellationToken cancellationToken)
     {
-        var userAccounts = identityService.UserAccounts();
-        var result = await userAccounts.Select(x => new UserAccountDto
+        IQueryable<UserAccountResult> userAccounts = identityService.UserAccountWithRoles();
+        int totalResults = await userAccounts.CountAsync(cancellationToken: cancellationToken);
+        int totalPages = (int)Math.Ceiling((double)totalResults / request.PageCount);
+
+        List<UserAccountResult> result = await userAccounts.Select(x => new UserAccountResult
+            {
+                DateAccountCreated = x.DateAccountCreated,
+                EmailAddress = x.EmailAddress,
+                FirstName = x.FirstName,
+                LastName = x.LastName,
+                PhoneNumber = x.PhoneNumber,
+                Status = x.Status,
+                UserId = x.UserId,
+                Roles = x.Roles
+            })
+                .Skip((request.PageNumber - 1) * request.PageCount)
+                .Take(request.PageCount)
+                .ToListAsync(cancellationToken: cancellationToken);
+
+        UserAccountDto userAccountResult = new()
         {
-            DateAccountCreated = x.Created,
-            EmailAddress = x.Email,
-            FirstName = x.FirstName,
-            LastName = x.LastName,
-            PhoneNumber = x.PhoneNumber,
-            Status = x.UsersStatus,
-            UserId = x.Id
-        })
-            .Skip((request.PageNumber - 1) * request.PageCount)
-            .Take(request.PageCount)
-            .ToListAsync(cancellationToken: cancellationToken);
-        return Result<List<UserAccountDto>>.Success("User accounts retrieved successfully.", result);
+            Page = request.PageNumber,
+            Size = request.PageCount,
+            TotalPages = totalPages,
+            TotalResults = totalResults,
+            Results = result
+        };
+        return Result<UserAccountDto>.Success("User accounts retrieved successfully.", userAccountResult);
     }
 }
 
 
 public class UserAccountDto
 {
+    public int Page { get; set; }
+    public int Size { get; set; }
+    public int TotalPages { get; set; }
+    public int TotalResults { get; set; }
+    public List<UserAccountResult> Results { get; set; } = [];
+}
+public class UserAccountResult
+{
+
     public Guid UserId { get; set; }
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
@@ -53,4 +76,5 @@ public class UserAccountDto
     public string? PhoneNumber { get; set; }
     public DateTimeOffset DateAccountCreated { get; set; }
     public StatusEnum Status { get; set; }
+    public List<string> Roles { get; set; } = [];
 }

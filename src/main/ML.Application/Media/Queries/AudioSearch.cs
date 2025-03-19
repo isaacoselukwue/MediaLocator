@@ -64,4 +64,5 @@ public class AudioSearchResult
     public string? FileType { get; set; }
     public string? RelatedUrl { get; set; }
     public string? Attribution { get; set; }
+    public string? Thumbnail { get; set; }
 }

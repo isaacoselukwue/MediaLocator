@@ -18,7 +18,7 @@ public interface IOpenVerseService
         string license = "",
         string licenseType = "",
         string categories = "",
-        int pageSize = 20,
+        int pageSize = 21,
         int page = 1);
     Task<AudioSearchResponse> SearchAudioAsync(
         string query,
@@ -26,7 +26,7 @@ public interface IOpenVerseService
         string license = "",
         string licenseType = "",
         string categories = "",
-        int pageSize = 20,
+        int pageSize = 21,
         int page = 1);
 }
 
@@ -91,7 +91,7 @@ public class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<Open
         string license = "",
         string licenseType = "",
         string categories = "",
-        int pageSize = 20,
+        int pageSize = 21,
         int page = 1)
     {
         string token = await GetAuthToken(cancellationToken);
@@ -159,7 +159,7 @@ public class OpenVerseService(IHttpClientFactory httpClientFactory, ILogger<Open
         string license = "",
         string licenseType = "",
         string categories = "",
-        int pageSize = 20,
+        int pageSize = 21,
         int page = 1)
     {
         string token = await GetAuthToken(cancellationToken);

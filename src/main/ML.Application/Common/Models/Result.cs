@@ -7,7 +7,7 @@ public class Result
     {
         Succeeded = succeeded;
         Message = message;
-        Errors = errors.ToArray();
+        Errors = [.. errors];
     }
     public bool Succeeded { get; init; }
     public string Message { get; init; }
@@ -30,7 +30,7 @@ public class Result<T> : Result
 
     public T? Data { get; init; }
 
-    public static new Result Success(string message) => new(true, message, Array.Empty<string>());
+    public static new Result Success(string message) => new(true, message, []);
     public static Result<T> Success(string message, T data) => new(true, message, [], data);
     public static new Result<T> Failure(string message, IEnumerable<string> errors) => new(false, message, errors, data: default!);
 }

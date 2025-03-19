@@ -23,8 +23,8 @@ public class SearchService(HybridCache hybridCache, IMLDbContext mlDbContext, IJ
         Result<AudioSearchResult> audioResult = await GetAudioDetails(searchId, cancellationToken);
         if (!audioResult.Succeeded)
             return Result.Failure("Audio details not found", ["Audio could not be retrieved"]);
-
-        if(await mlDbContext.SearchHistories.AnyAsync(x => x.SearchId == searchId, cancellationToken))
+        Guid userId = jwtService.GetUserId();
+        if (await mlDbContext.SearchHistories.AnyAsync(x => x.SearchId == searchId && x.UserId == userId, cancellationToken))
             return Result.Success("Search history already saved!");
 
         SearchHistories searchHistory = new()
@@ -52,8 +52,9 @@ public class SearchService(HybridCache hybridCache, IMLDbContext mlDbContext, IJ
             Source = audioResult.Data?.Source,
             Status = StatusEnum.Active,
             Title = audioResult.Data?.Title,
+            ThumbNail = audioResult.Data?.Thumbnail,
             Url = audioResult.Data?.Url,
-            UserId = jwtService.GetUserId()
+            UserId = userId
         };
         await mlDbContext.SearchHistories.AddAsync(searchHistory, cancellationToken);
         await mlDbContext.SaveChangesAsync(cancellationToken);
@@ -66,7 +67,8 @@ public class SearchService(HybridCache hybridCache, IMLDbContext mlDbContext, IJ
         if (!imageResult.Succeeded)
             return Result.Failure("Image details not found", ["Image could not be retrieved"]);
 
-        if (await mlDbContext.SearchHistories.AnyAsync(x => x.SearchId == searchId, cancellationToken))
+        Guid userId = jwtService.GetUserId();
+        if (await mlDbContext.SearchHistories.AnyAsync(x => x.SearchId == searchId && x.UserId == userId, cancellationToken))
             return Result.Success("Search history already saved!");
 
         SearchHistories searchHistory = new()
@@ -96,7 +98,7 @@ public class SearchService(HybridCache hybridCache, IMLDbContext mlDbContext, IJ
             ThumbNail = imageResult.Data?.ThumbNail,
             Title = imageResult.Data?.Title,
             Url = imageResult.Data?.Url,
-            UserId = jwtService.GetUserId()
+            UserId = userId
         };
         await mlDbContext.SearchHistories.AddAsync(searchHistory, cancellationToken);
         await mlDbContext.SaveChangesAsync(cancellationToken);
@@ -205,6 +207,65 @@ public class SearchService(HybridCache hybridCache, IMLDbContext mlDbContext, IJ
         return Result<UsersSearchHistoryDto>.Success("Successfully fetched search history", usersSearchHistoryDto);
 
     }
+
+    public async Task<Result<DailyMediaDto>> GetDailyMediaAsync(CancellationToken cancellationToken)
+    {
+        string wordofTheDay = WordOfTheDay();
+        string cacheKey = $"daily_media_{wordofTheDay}";
+
+        var result = await hybridCache.GetOrCreateAsync(cacheKey, async token =>
+        {
+            var audioTask = openVerseService.SearchAudioAsync(wordofTheDay, token, page: 1);
+            var imageTask = openVerseService.SearchImagesAsync(wordofTheDay, token, page: 1);
+
+            await Task.WhenAll(audioTask, imageTask);
+
+            AudioSearchResponse audioResult = await audioTask;
+            ImageSearchResponse imageResult = await imageTask;
+
+            wordofTheDay = $"Word of day is: {wordofTheDay} {GetEmojiForWord(wordofTheDay)}!";
+            return Result<DailyMediaDto>.Success("Successfully fetched daily media", MapDailyMedia(audioResult, imageResult, wordofTheDay));
+        }, cancellationToken: cancellationToken);
+
+        return result is null ? Result<DailyMediaDto>.Failure("We could not retrieve daily media at this time", ["An unexpected error occurred"]) : result;
+    }
+
+    private static string WordOfTheDay()
+    {
+        Dictionary<string, string> dayToWord = new()
+        {
+            { "Monday", "Positive" },
+            { "Tuesday", "Drum" },
+            { "Wednesday", "Happy" },
+            { "Thursday", "Laugh" },
+            { "Friday", "Thankful" },
+            { "Saturday", "Free" },
+            { "Sunday", "Love" }
+        };
+        return dayToWord[GetDayOfTheWeek()];
+    }
+
+    private static string GetEmojiForWord(string word)
+    {
+        Dictionary<string, string> wordToEmoji = new()
+        {
+            { "Positive", "😊" },
+            { "Drum", "🥁" },
+            { "Happy", "😃" },
+            { "Laugh", "😂" },
+            { "Thankful", "🙏" },
+            { "Free", "🆓" },
+            { "Love", "❤️" }
+        };
+
+        return wordToEmoji.TryGetValue(word, out string? emoji) ? emoji : string.Empty;
+    }
+
+    private static string GetDayOfTheWeek()
+    {
+        return DateTime.Now.DayOfWeek.ToString();
+    }
+
     public async Task<Result<AudioSearchDto>> SearchAudio(string searchQuery, OpenLicenseEnum? license, OpenLicenseTypeEnum? licenseType, OpenAudioCategoryEnum? category, int pageNumber, CancellationToken cancellationToken)
     {
         string licenseString = string.Empty;
@@ -278,7 +339,8 @@ public class SearchService(HybridCache hybridCache, IMLDbContext mlDbContext, IJ
                 FileSize = x.FileSize,
                 FileType = x.FileType,
                 RelatedUrl = x.RelatedUrl,
-                Attribution = x.Attribution
+                Attribution = x.Attribution,
+                Thumbnail = x.Thumbnail
             })]
         };
         return audioSearchDto;
@@ -304,7 +366,8 @@ public class SearchService(HybridCache hybridCache, IMLDbContext mlDbContext, IJ
             FileSize = audioResult.FileSize,
             FileType = audioResult.FileType,
             RelatedUrl = audioResult.RelatedUrl,
-            Attribution = audioResult.Attribution
+            Attribution = audioResult.Attribution,
+            Thumbnail = audioResult.Thumbnail
         };
         return audioSearchResult;
     }
@@ -384,6 +447,7 @@ public class SearchService(HybridCache hybridCache, IMLDbContext mlDbContext, IJ
             Provider = history.Provider,
             RelatedUrl = history.RelatedUrl,
             SearchId = history.SearchId,
+            SearchDate = history.Created,
             Source = history.Source,
             ThumbNail = history.ThumbNail,
             Title = history.Title,
@@ -402,6 +466,7 @@ public class SearchService(HybridCache hybridCache, IMLDbContext mlDbContext, IJ
             Title = history.Title,
             Url = history.Url,
             Creator = history.Creator,
+            SearchDate = history.Created,
             License = history.License,
             Provider = history.Provider,
             Attribuition = history.Attribuition,
@@ -419,5 +484,55 @@ public class SearchService(HybridCache hybridCache, IMLDbContext mlDbContext, IJ
             ThumbNail = history.ThumbNail
         })];
         return adminSearchHistoryResults;
+    }
+    private DailyMediaDto MapDailyMedia(AudioSearchResponse audioResult, ImageSearchResponse imageResult, string wordOfTheDay)
+    {
+        return new DailyMediaDto
+        {
+            AudioSearchResults = [.. audioResult.Results.Select(x => new AudioSearchResult
+                {
+                    Id = x.Id,
+                    Title = x.Title,
+                    IndexedOn = x.IndexedOn,
+                    ForeignLandingUrl = x.ForeignLandingUrl,
+                    Url = x.Url,
+                    Creator = x.Creator,
+                    CreatorUrl = x.CreatorUrl,
+                    License = x.License,
+                    LicenseVersion = x.LicenseVersion,
+                    LicenseUrl = x.LicenseUrl,
+                    Provider = x.Provider,
+                    Source = x.Source,
+                    Category = x.Category,
+                    Genres = x.Genres,
+                    FileSize = x.FileSize,
+                    FileType = x.FileType,
+                    RelatedUrl = x.RelatedUrl,
+                    Attribution = x.Attribution,
+                    Thumbnail = x.Thumbnail
+                })],
+            ImageSearchResults = [.. imageResult.Results.Select(x => new ImageSearchResult
+                {
+                    Id = x.Id,
+                    Title = x.Title,
+                    IndexedOn = x.IndexedOn,
+                    ForeignLandingUrl = x.ForeignLandingUrl,
+                    Url = x.Url,
+                    Creator = x.Creator,
+                    CreatorUrl = x.CreatorUrl,
+                    License = x.License,
+                    LicenseVersion = x.LicenseVersion,
+                    LicenseUrl = x.LicenseUrl,
+                    Provider = x.Provider,
+                    Source = x.Source,
+                    Category = x.Category,
+                    FileType = x.FileType,
+                    ThumbNail = x.Thumbnail,
+                    Attribution = x.Attribution,
+                    FileSize = x.FileSize,
+                    RelatedUrl = x.RelatedUrl
+                })],
+            WordOfTheDay = wordOfTheDay
+        };
     }
 }
