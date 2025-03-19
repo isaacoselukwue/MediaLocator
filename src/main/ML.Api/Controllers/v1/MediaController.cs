@@ -80,5 +80,13 @@ namespace ML.Api.Controllers.v1
             var result = await sender.Send(query);
             return Ok(result);
         }
+
+        [HttpGet("daily-media")]
+        public async ValueTask<ActionResult<Result<DailyMediaDto>>> GetDailyMedia()
+        {
+            var query = new DailyMediaQuery();
+            var result = await sender.Send(query);
+            return Ok(result);
+        }
     }
 }

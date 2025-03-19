@@ -252,7 +252,6 @@ public class OpenApiFilter : IOpenApiDocumentTransformer
 
         if (startIndex + 1 < segments.Length)
         {
-            // Convert kebab-case to camelCase (e.g., "change-password" to "changePassword")
             string action = segments[startIndex + 1];
             if (action.Contains('-'))
             {

@@ -1,0 +1,781 @@
+@page "/account"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using System.Security.Claims
+@using ML.Web.Models
+@using ML.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.ComponentModel.DataAnnotations
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IMediaLocatorHttpClient HttpClient
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Account Settings - MediaLocator</PageTitle>
+
+<div class="account-container">
+    <h1 class="account-header">Account Settings</h1>
+
+    <div class="account-tabs">
+        <div class="tab @(activeTab == "password" ? "active" : "")" @onclick='() => activeTab = "password"'>
+            <i class="bi bi-lock"></i> Change Password
+        </div>
+        @if (isAdmin)
+        {
+            <div class="tab @(activeTab == "users" ? "active" : "")" @onclick="() => LoadAndShowUsers()">
+                <i class="bi bi-people"></i> User Management
+            </div>
+        }
+        <div class="tab @(activeTab == "deactivate" ? "active" : "")" @onclick='() => activeTab = "deactivate"'>
+            <i class="bi bi-person-x"></i> Deactivate Account
+        </div>
+    </div>
+
+    <div class="account-content">
+        @if (activeTab == "password")
+        {
+            <div class="account-section">
+                <h2>Change Password</h2>
+                <p>Update your password to ensure your account remains secure.</p>
+
+                <EditForm Model="passwordModel" OnValidSubmit="HandlePasswordChange" class="account-form">
+                    <DataAnnotationsValidator />
+
+                    @if (!string.IsNullOrEmpty(passwordMessage))
+                    {
+                        <div class="@(passwordSuccess ? "success-container" : "error-container")">
+                            <div class="@(passwordSuccess ? "success-icon" : "error-icon")">@(passwordSuccess ? "✓" : "⚠️")</div>
+                            <div class="@(passwordSuccess ? "success-message" : "error-message")">
+                                <div class="@(passwordSuccess ? "success-title" : "error-title")">@passwordMessage</div>
+                                @if (errorDetails != null && errorDetails.Any())
+                                {
+                                    <ul class="error-details">
+                                        @foreach (var detail in errorDetails)
+                                        {
+                                            <li>@detail</li>
+                                        }
+                                    </ul>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <div class="form-group">
+                        <label for="currentPassword">Current Password</label>
+                        <InputText id="currentPassword" type="password" @bind-Value="passwordModel.CurrentPassword" class="form-control" />
+                        <ValidationMessage For="@(() => passwordModel.CurrentPassword)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <InputText id="newPassword" type="password" @bind-Value="passwordModel.NewPassword" class="form-control" />
+                        <ValidationMessage For="@(() => passwordModel.NewPassword)" />
+                        <div class="form-text">Password must be at least 12 characters and include uppercase letter, lowercase letter, number, and special character.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm New Password</label>
+                        <InputText id="confirmPassword" type="password" @bind-Value="passwordModel.ConfirmPassword" class="form-control" />
+                        <ValidationMessage For="@(() => passwordModel.ConfirmPassword)" />
+                    </div>
+
+                    <button type="submit" class="account-button" disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span>Processing...</span>
+                        }
+                        else
+                        {
+                            <span>Update Password</span>
+                        }
+                    </button>
+                </EditForm>
+            </div>
+        }
+        else if (activeTab == "users" && isAdmin)
+        {
+            <div class="account-section">
+                <h2>User Management</h2>
+                <p>Manage user accounts in the system.</p>
+
+                @if (isLoading)
+                {
+                    <div class="loading-container">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="users-toolbar">
+                        <div class="search-box">
+                            <i class="bi bi-search"></i>
+                            <input type="text" placeholder="Search users..." @bind-value="searchTerm" @bind-value:event="oninput" @onkeyup="FilterUsers" />
+                        </div>
+                        <div class="filter-controls">
+                            <select @bind="roleFilter" @oninput="FilterUsers">
+                                <option value="">All Roles</option>
+                                <option value="Admin">Admin</option>
+                                <option value="User">User</option>
+                            </select>
+                            <select @bind="statusFilter"  @oninput="FilterUsers">
+                                <option value="">All Status</option>
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    @if (filteredUsers.Any())
+                    {
+                        <div class="users-table-container">
+                            <table class="users-table">
+                                <thead>
+                                    <tr>
+                                        <th @onclick='() => SortUsers("Name")'>Name <span class="sort-icon">↕</span></th>
+                                        <th @onclick='() => SortUsers("Email")'>Email <span class="sort-icon">↕</span></th>
+                                        <th @onclick='() => SortUsers("Role")'>Role <span class="sort-icon">↕</span></th>
+                                        <th @onclick='() => SortUsers("Status")'>Status <span class="sort-icon">↕</span></th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var user in filteredUsers)
+                                    {
+                                        <tr>
+                                            <td>@user.FullName</td>
+                                            <td>@user.Email</td>
+                                            <td><span class="role-badge @user.Role.ToLower()">@user.Role</span></td>
+                                            <td>
+                                                <span class="status-indicator @GetStatusClass(user.StatusEnum)">
+                                                    @user.Status
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="action-buttons">
+                                                    <button class="icon-button" title="Reset Password" @onclick="() => ResetUserPassword(user)">
+                                                        <i class="bi bi-key"></i>
+                                                    </button>
+
+                                                    @if (user.StatusEnum == StatusEnum.Active)
+                                                    {
+                                                        <button class="icon-button" title="Change Role" @onclick="() => ChangeUserRole(user)">
+                                                            <i class="bi bi-person-badge"></i>
+                                                        </button>
+
+                                                        <button class="icon-button" title="View Search History" @onclick="() => ViewUserSearchHistory(user)">
+                                                            <i class="bi bi-clock-history"></i>
+                                                        </button>
+
+                                                        <button class="icon-button warning" title="Deactivate User" @onclick="() => DeactivateUser(user)">
+                                                            <i class="bi bi-person-dash"></i>
+                                                        </button>
+                                                    }
+                                                    else if (user.StatusEnum != StatusEnum.Deleted)
+                                                    {
+                                                        <button class="icon-button" title="Activate user to change role" disabled style="opacity: 0.5">
+                                                            <i class="bi bi-person-badge"></i>
+                                                        </button>
+
+                                                        <button class="icon-button" title="View Search History" @onclick="() => ViewUserSearchHistory(user)">
+                                                            <i class="bi bi-clock-history"></i>
+                                                        </button>
+
+                                                        <button class="icon-button success" title="Activate User" @onclick="() => ActivateUser(user)">
+                                                            <i class="bi bi-person-check"></i>
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <button class="icon-button" title="Cannot change role for deleted user" disabled style="opacity: 0.5">
+                                                            <i class="bi bi-person-badge"></i>
+                                                        </button>
+                                                    }
+
+                                                    <button class="icon-button danger" title="Delete User" @onclick="() => DeleteUser(user)">
+                                                        <i class="bi bi-person-x"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            <div class="pagination-controls">
+                                <button class="pagination-button" @onclick="() => ChangePage(1)" disabled="@(currentPage <= 1)">
+                                    <i class="bi bi-chevron-double-left"></i>
+                                </button>
+                                <button class="pagination-button" @onclick="() => ChangePage(currentPage - 1)" disabled="@(currentPage <= 1)">
+                                    <i class="bi bi-chevron-left"></i> Previous
+                                </button>
+
+                                <span class="page-info">Page @currentPage of @totalPages (@totalResultsCount total users)</span>
+
+                                <button class="pagination-button" @onclick="() => ChangePage(currentPage + 1)" disabled="@(currentPage >= totalPages)">
+                                    Next <i class="bi bi-chevron-right"></i>
+                                </button>
+                                <button class="pagination-button" @onclick="() => ChangePage(totalPages)" disabled="@(currentPage >= totalPages)">
+                                    <i class="bi bi-chevron-double-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="no-users">
+                            <i class="bi bi-search"></i>
+                            <p>No users found matching your search criteria.</p>
+                        </div>
+                    }
+                }
+            </div>
+        }
+        else if (activeTab == "deactivate")
+        {
+            <div class="account-section">
+                <h2>Deactivate Account</h2>
+                <p>This action cannot be undone. All your data will become inaccessible.</p>
+
+                <div class="deactivate-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <div>
+                        <h3>Warning: This action is permanent</h3>
+                        <p>Deactivating your account will immediately log you out and prevent any future access. If you need to regain access, you'll have to contact our support team.</p>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(deactivateMessage))
+                {
+                    <div class="error-container">
+                        <div class="error-icon">⚠️</div>
+                        <div class="error-message">
+                            <div class="error-title">@deactivateMessage</div>
+                        </div>
+                    </div>
+                }
+
+                <div class="confirmation-box">
+                    <div class="confirmation-input">
+                        <label for="confirmDeactivate">To confirm, type "DEACTIVATE" below:</label>
+                        <input id="confirmDeactivate" type="text" @bind="deactivateConfirmation" class="form-control" />
+                    </div>
+
+                    <button class="danger-button" disabled="@(deactivateConfirmation != "DEACTIVATE" || isProcessing)" @onclick="HandleDeactivateAccount">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span>Processing...</span>
+                        }
+                        else
+                        {
+                            <span>Deactivate My Account</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Role Change Modal -->
+@if (showRoleModal)
+{
+    <div class="modal-backdrop"></div>
+    <div class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Change User Role</h3>
+                <button class="close-button" @onclick="() => showRoleModal = false">×</button>
+            </div>
+            <div class="modal-body">
+                <p>Change role for user: <strong>@(selectedUser?.FullName ?? "")</strong></p>
+                
+                <div class="form-group">
+                    <label>New Role</label>
+                    <select @bind="selectedRole" class="form-control">
+                        <option value="User">User</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-button" @onclick="() => showRoleModal = false">Cancel</button>
+                <button class="primary-button" @onclick="ConfirmRoleChange">Change Role</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete User Modal -->
+@if (showDeleteModal)
+{
+    <div class="modal-backdrop"></div>
+    <div class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Delete User Account</h3>
+                <button class="close-button" @onclick="() => showDeleteModal = false">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-message">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <p>Are you sure you want to delete the account for <strong>@(selectedUser?.FullName ?? "")</strong>?</p>
+                </div>
+                <div class="checkbox-container">
+                    <input type="checkbox" id="isPermanent" @bind="isPermanentDelete" />
+                    <label for="isPermanent">Permanently delete account (cannot be recovered)</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-button" @onclick="() => showDeleteModal = false">Cancel</button>
+                <button class="danger-button" @onclick="ConfirmDeleteUser">Delete Account</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string activeTab = "password";
+    private bool isAdmin = false;
+    private bool isProcessing = false;
+    private bool isLoading = false;
+    private string searchTerm = "";
+    private string roleFilter = "";
+    private string statusFilter = "";
+    private bool showRoleModal = false;
+    private bool showDeleteModal = false;
+    private string selectedRole = "User";
+    private bool isPermanentDelete = false;
+    private UserModel? selectedUser;
+    
+    // Password change
+    private PasswordChangeModel passwordModel = new();
+    private string passwordMessage = string.Empty;
+    private bool passwordSuccess = false;
+    private List<string> errorDetails = new();
+
+    // Deactivate account
+    private string deactivateConfirmation = string.Empty;
+    private string deactivateMessage = string.Empty;
+    
+    // User management
+    private List<UserModel> users = new();
+    private List<UserModel> filteredUsers = new();
+
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 1;
+    private int totalResultsCount = 0;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        isAdmin = user.IsInRole("Admin");
+    }
+    
+    private async Task LoadAndShowUsers()
+    {
+        if (!isAdmin) return;
+        
+        activeTab = "users";
+        await LoadUsers();
+    }
+    
+    private async Task LoadUsers()
+    {
+        if (!isAdmin) return;
+    
+        isLoading = true;
+        try
+        {
+            string endpoint = $"api/v1/account/admin/users?PageNumber={currentPage}&PageCount={pageSize}";
+            var result = await HttpClient.GetAsync<ApiResult<PaginatedUserAccountDto>>(endpoint);
+        
+            if (result.Succeeded && result.Data is not null)
+            {
+                currentPage = result.Data.Page;
+                pageSize = result.Data.Size;
+                totalPages = result.Data.TotalPages;
+                totalResultsCount = result.Data.TotalResults;
+            
+                users = result.Data.Results.Select(u => new UserModel
+                {
+                    Id = u.UserId.ToString(),
+                    FullName = $"{u.FirstName} {u.LastName}",
+                    Email = u.EmailAddress ?? string.Empty,
+                    Roles = u.Roles ?? [],
+                    Role = GetPrimaryRole(u.Roles ?? []),
+                    Status = u.Status.ToString(),
+                    StatusEnum = u.Status
+                }).ToList();
+            
+                FilterUsers();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading users: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ChangePage(int page)
+    {
+        if (page < 1 || page > totalPages) return;
+        
+        currentPage = page;
+        await LoadUsers();
+    }
+
+    private string GetPrimaryRole(List<string> roles)
+    {
+        if (roles == null || !roles.Any())
+            return "User"; 
+            
+        if (roles.Contains("Admin", StringComparer.OrdinalIgnoreCase))
+            return "Admin";
+            
+        return roles.First();
+    }
+
+    private void FilterUsers()
+    {
+        filteredUsers = users
+            .Where(u => string.IsNullOrEmpty(searchTerm) || 
+                        u.FullName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        u.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .Where(u => string.IsNullOrEmpty(roleFilter) || u.Role == roleFilter)
+            .Where(u => string.IsNullOrEmpty(statusFilter) || u.Status == statusFilter)
+            .ToList();
+    }
+
+    private void SortUsers(string column)
+    {
+        switch (column)
+        {
+            case "Name":
+                filteredUsers = filteredUsers.OrderBy(u => u.FullName).ToList();
+                break;
+            case "Email":
+                filteredUsers = filteredUsers.OrderBy(u => u.Email).ToList();
+                break;
+            case "Role":
+                filteredUsers = filteredUsers.OrderBy(u => u.Role).ToList();
+                break;
+            case "Status":
+                filteredUsers = filteredUsers.OrderBy(u => u.Status).ToList();
+                break;
+        }
+    }
+
+    private async Task HandlePasswordChange()
+    {
+        if (!passwordModel.NewPassword.Equals(passwordModel.ConfirmPassword))
+        {
+            passwordSuccess = false;
+            passwordMessage = "New password and confirmation do not match.";
+            return;
+        }
+
+        isProcessing = true;
+        passwordMessage = string.Empty;
+        errorDetails.Clear();
+        
+        try
+        {
+            ChangePasswordRequest changePasswordRequest = new()
+            {
+                NewPassword = passwordModel.NewPassword,
+                ConfirmNewPassword = passwordModel.ConfirmPassword
+            };
+            
+            var result = await HttpClient.PostAsync<ApiResult, ChangePasswordRequest>(
+                "api/v1/account/change-password", 
+                changePasswordRequest);
+            
+            if (result.Succeeded)
+            {
+                passwordSuccess = true;
+                passwordMessage = "Your password has been updated successfully.";
+                passwordModel = new PasswordChangeModel();
+            }
+            else
+            {
+                passwordSuccess = false;
+                passwordMessage = result.Message ?? "Failed to update password.";
+                errorDetails = result.Errors?.ToList() ?? new List<string>();
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            passwordSuccess = false;
+            if (ex.Data.Contains("ApiErrorResponse"))
+            {
+                var errorData = ex.Data["ApiErrorResponse"] as ErrorResponse;
+                if (errorData != null)
+                {
+                    passwordMessage = errorData.Message ?? "Failed to update password.";
+                    errorDetails = errorData.Errors?.ToList() ?? new List<string>();
+                }
+            }
+            else
+            {
+                passwordMessage = "Failed to update password. Please try again.";
+            }
+        }
+        catch (Exception)
+        {
+            passwordSuccess = false;
+            passwordMessage = "An unexpected error occurred. Please try again.";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task HandleDeactivateAccount()
+    {
+        if (deactivateConfirmation != "DEACTIVATE")
+            return;
+            
+        isProcessing = true;
+        deactivateMessage = string.Empty;
+        
+        try
+        {
+            var result = await HttpClient.DeleteAsync<ApiResult>("api/v1/account/deactivate-account");
+            
+            if (result.Succeeded)
+            {
+                await AuthService.Logout();
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                isProcessing = false;
+                deactivateMessage = result.Message ?? "Failed to deactivate account. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            isProcessing = false;
+            deactivateMessage = "An error occurred while deactivating your account. Please try again.";
+            Console.WriteLine($"Deactivate error: {ex.Message}");
+        }
+    }
+    
+    private void ChangeUserRole(UserModel user)
+    {
+        if (user.StatusEnum != StatusEnum.Active)
+        {
+            passwordSuccess = false;
+            passwordMessage = "Only active users can have their roles changed.";
+            return;
+        }
+        
+        selectedUser = user;
+        selectedRole = user.Role;
+        showRoleModal = true;
+    }
+
+    private void ViewUserSearchHistory(UserModel user)
+    {
+        if (string.IsNullOrEmpty(user.Email))
+            return;
+
+        Navigation.NavigateTo($"/admin/search-history?email={Uri.EscapeDataString(user.Email)}");
+    }
+    
+    private async Task ConfirmRoleChange()
+    {
+        if (selectedUser == null) return;
+        
+        try
+        {
+            ChangeUserRoleRequest request = new()
+            {
+                UserId = Guid.Parse(selectedUser.Id),
+                Role = selectedRole
+            };
+            
+            var result = await HttpClient.PostAsync<ApiResult, ChangeUserRoleRequest>(
+                "api/v1/account/admin/change-role", 
+                request);
+                
+            if (result.Succeeded)
+            {
+                var user = users.FirstOrDefault(u => u.Id == selectedUser.Id);
+                if (user != null) 
+                {
+                    user.Role = selectedRole;
+                    
+                    if (selectedRole == "Admin" && !user.Roles.Contains("Admin"))
+                    {
+                        user.Roles.Add("Admin");
+                    }
+                    else if (selectedRole == "User" && user.Roles.Contains("Admin"))
+                    {
+                        user.Roles.Remove("Admin");
+                        if (!user.Roles.Contains("User"))
+                            user.Roles.Add("User");
+                    }
+                }
+                FilterUsers();
+            }
+            
+            showRoleModal = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Role change error: {ex.Message}");
+        }
+    }
+    private async Task ActivateUser(UserModel user)
+    {
+        try
+        {
+            ActivateAccountRequest request = new()
+            {
+                UserId = Guid.Parse(user.Id)
+            };
+            
+            var result = await HttpClient.PostAsync<ApiResult, ActivateAccountRequest>(
+                "api/v1/account/admin/activate-account", 
+                request);
+                
+            if (result.Succeeded)
+            {
+                user.Status = "Active";
+                FilterUsers();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Activate user error: {ex.Message}");
+        }
+    }
+    
+    private async Task DeactivateUser(UserModel user)
+    {
+        try
+        {
+            DeactivateAccountAdminRequest request = new()
+            {
+                UserId = Guid.Parse(user.Id)
+            };
+            
+            var result = await HttpClient.PostAsync<ApiResult, DeactivateAccountAdminRequest>(
+                "api/v1/account/admin/deactivate-account", 
+                request);
+                
+            if (result.Succeeded)
+            {
+                user.Status = "Inactive";
+                user.StatusEnum = StatusEnum.InActive;
+                FilterUsers();
+                
+                passwordSuccess = true;
+                passwordMessage = $"User {user.FullName} has been deactivated successfully.";
+            }
+            else
+            {
+                passwordSuccess = false;
+                passwordMessage = result.Message ?? "Failed to deactivate user.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Deactivate user error: {ex.Message}");
+            passwordSuccess = false;
+            passwordMessage = "An error occurred while deactivating the user.";
+        }
+    }
+    
+    private async Task ResetUserPassword(UserModel user)
+    {
+        try
+        {
+            InitiatePasswordResetRequest request = new()
+                {
+                    EmailAddress = user.Email
+                };
+
+            var result = await HttpClient.PostAsync<ApiResult, InitiatePasswordResetRequest>(
+                "api/v1/account/password-reset/initial",
+                request);
+
+            if (result.Succeeded)
+            {
+                passwordSuccess = true;
+                passwordMessage = $"Password reset email has been sent to {user.Email}";
+            }
+            else
+            {
+                passwordSuccess = false;
+                passwordMessage = result.Message ?? "Failed to send password reset email.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Password reset error: {ex.Message}");
+            passwordSuccess = false;
+            passwordMessage = "An error occurred while sending the password reset email.";
+        }
+    }
+    
+    private void DeleteUser(UserModel user)
+    {
+        selectedUser = user;
+        isPermanentDelete = false;
+        showDeleteModal = true;
+    }
+    
+    private async Task ConfirmDeleteUser()
+    {
+        if (selectedUser == null) return;
+        
+        try
+        {
+            DeleteAccountRequest request = new()
+            {
+                UserId = Guid.Parse(selectedUser.Id),
+                IsPermanant = isPermanentDelete
+            };
+            
+            var result = await HttpClient.DeleteAsync<ApiResult, DeleteAccountRequest>("api/v1/account/admin/delete-account", request);
+                
+            if (result.Succeeded)
+            {
+                users.Remove(selectedUser);
+                FilterUsers();
+            }
+            
+            showDeleteModal = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Delete user error: {ex.Message}");
+        }
+    }
+
+
+    private string GetStatusClass(StatusEnum status)
+    {
+        return status switch
+        {
+            StatusEnum.Active => "active",
+            StatusEnum.Pending => "pending",
+            StatusEnum.Deleted => "deleted",
+            StatusEnum.InActive => "inactive",
+            _ => "inactive"
+        };
+    }
+}

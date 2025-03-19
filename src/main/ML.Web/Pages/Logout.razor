@@ -1,0 +1,30 @@
+@page "/logout"
+@using ML.Web.Services
+@inject IAuthenticationService AuthService
+@inject NavigationManager NavManager
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Signing out...</PageTitle>
+
+<div class="logout-container">
+    <div class="logout-card">
+        <div class="logout-icon">
+            <i class="bi bi-box-arrow-right"></i>
+        </div>
+        <h2>Signing Out</h2>
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p>Please wait while we securely sign you out...</p>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("clearAllTimers");
+
+        await AuthService.Logout();
+        NavManager.NavigateTo("/login?loggedout=true");
+    }
+}

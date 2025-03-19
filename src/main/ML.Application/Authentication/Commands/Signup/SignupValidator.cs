@@ -10,7 +10,7 @@ public class SignupValidator : AbstractValidator<SignupCommand>
         RuleFor(x => x.ConfirmPassword).Equal(x => x.Password);
         RuleFor(x => x.FirstName).NotEmpty();
         RuleFor(x => x.LastName).NotEmpty();
-        RuleFor(x=>x.PhoneNumber).NotEmpty().MinimumLength(7).MinimumLength(14)
+        RuleFor(x=>x.PhoneNumber).NotEmpty().MinimumLength(7).MaximumLength(14)
             .Matches(@"^[0]\d+$").WithMessage("Phone number must start with '0' and contain only digits"); ;
     }
 }

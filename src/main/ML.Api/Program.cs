@@ -121,11 +121,23 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
 
 
 bool seedDatabase = builder.Configuration.GetValue<bool>("SeedDatabase");
+string baseUrl = builder.Configuration["FEBaseUrl"]!;
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowBlazorApp", policy =>
+    {
+        policy.WithOrigins(baseUrl)
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
 
 var app = builder.Build();
+app.UseCors("AllowBlazorApp");
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+//if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference(x =>

@@ -10,5 +10,7 @@ public enum NotificationTypeEnum
     DeactivateAccountSuccess,
     ChangeRoleSuccess,
     ChangePasswordSuccess,
-    AccountActivationAdmin
+    AccountActivationAdmin,
+    PasswordResetInitiation,
+    PasswordResetSuccess
 }

@@ -1,0 +1,178 @@
+@page "/signup"
+@layout AuthLayout
+@using ML.Web.Models
+@using ML.Web.Services
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@attribute [AllowAnonymous]
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Sign Up - MediaLocator</PageTitle>
+
+<div class="login-container">
+    <div class="logo-container">
+        <img src="https://i.imgur.com/4wSDxWP.png" alt="MediaLocator Logo" class="logo" />
+    </div>
+    <div class="login-header">Create Account</div>
+
+    <EditForm Model="signupModel" OnValidSubmit="HandleSignUp" class="login-form">
+        <DataAnnotationsValidator />
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="error-container">
+                <div class="error-icon">⚠️</div>
+                <div class="error-message">
+                    <div class="error-title">@errorMessage</div>
+                    @if (errorDetails != null && errorDetails.Any())
+                    {
+                        <ul class="error-details">
+                            @foreach (var detail in errorDetails)
+                            {
+                                <li>@detail</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        }
+        
+        <div class="form-group">
+            <label for="firstName">First Name</label>
+            <InputText id="firstName" @bind-Value="signupModel.FirstName" class="form-control" />
+            <ValidationMessage For="@(() => signupModel.FirstName)" />
+        </div>
+
+        <div class="form-group">
+            <label for="lastName">Last Name</label>
+            <InputText id="lastName" @bind-Value="signupModel.LastName" class="form-control" />
+            <ValidationMessage For="@(() => signupModel.LastName)" />
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email</label>
+            <InputText id="email" @bind-Value="signupModel.EmailAddress" class="form-control" />
+            <ValidationMessage For="@(() => signupModel.EmailAddress)" />
+        </div>
+
+        <div class="form-group">
+            <label for="phoneNumber">Phone Number</label>
+            <InputText id="phoneNumber" @bind-Value="signupModel.PhoneNumber" class="form-control" />
+            <ValidationMessage For="@(() => signupModel.PhoneNumber)" />
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <InputText id="password" type="password" @bind-Value="signupModel.Password" class="form-control" />
+            <ValidationMessage For="@(() => signupModel.Password)" />
+        </div>
+
+        <div class="form-group">
+            <label for="confirmPassword">Confirm Password</label>
+            <InputText id="confirmPassword" type="password" @bind-Value="signupModel.ConfirmPassword" class="form-control" />
+            <ValidationMessage For="@(() => signupModel.ConfirmPassword)" />
+        </div>
+
+        <button type="submit" class="login-button" disabled="@isLoading">
+            @if (isLoading)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span>Creating account...</span>
+            }
+            else
+            {
+                <span>Sign Up</span>
+            }
+        </button>
+    </EditForm>
+
+    <div class="social-login">
+        <button class="social-button">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo">
+            Sign up with Google
+        </button>
+        <button class="social-button">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/0/01/X-Logo-Round-Color.png" alt="Twitter (X) Logo">
+            Sign up with Twitter (X)
+        </button>
+    </div>
+
+    <div class="login-footer">
+        <a href="login">Already have an account? Log in</a>
+    </div>
+</div>
+
+@code {
+    private SignupModel signupModel = new();
+    private bool isLoading = false;
+    private string errorMessage = string.Empty;
+    private List<string> errorDetails = [];
+
+    private async Task HandleSignUp()
+    {
+        isLoading = true;
+        errorDetails.Clear();
+        errorMessage = string.Empty;
+        
+        try
+        {
+            var result = await AuthService.SignUp(
+                signupModel.EmailAddress,
+                signupModel.Password,
+                signupModel.ConfirmPassword,
+                signupModel.FirstName,
+                signupModel.LastName,
+                signupModel.PhoneNumber
+            );
+
+            if (result)
+            {
+                Navigation.NavigateTo("/signup/verify");
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            if (ex.Data.Contains("ApiErrorResponse"))
+            {
+                var errorData = ex.Data["ApiErrorResponse"] as ErrorResponse;
+                if (errorData != null)
+                {
+                    errorMessage = errorData.Message ?? "Please retry later";
+                    errorDetails = errorData.Errors?.ToList() ?? [];
+                }
+                else
+                {
+                    errorMessage = "Registration failed. Please try again.";
+                }
+            }
+            else
+            {
+                errorMessage = $"Registration failed. Status: {ex.StatusCode}. Please check your network connection and try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (ex.Data.Contains("ApiErrorResponse"))
+            {
+                var errorData = ex.Data["ApiErrorResponse"] as ErrorResponse;
+                if (errorData != null)
+                {
+                    errorMessage = errorData.Message ?? "Please retry later";
+                    errorDetails = errorData.Errors?.ToList() ?? new List<string>();
+                }
+                else
+                {
+                    errorMessage = "Registration failed. Please try again.";
+                }
+            }
+            else
+            {
+                errorMessage = "An unexpected error occurred. Please try again.";
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

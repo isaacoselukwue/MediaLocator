@@ -70,4 +70,5 @@ public class AdminSearchHistoryResult
     public int? FileSize { get; set; }
     public string? FileType { get; set; }
     public string? ThumbNail { get; set; }
+    public DateTimeOffset SearchDate { get; set; }
 }

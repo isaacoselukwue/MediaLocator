@@ -22,7 +22,7 @@ public class SearchHistoryConfiguration : IEntityTypeConfiguration<SearchHistori
         builder.Property(e => e.Creator).HasMaxLength(200);
         builder.Property(e => e.License).HasMaxLength(200);
         builder.Property(e => e.Provider).HasMaxLength(200);
-        builder.Property(e => e.Attribuition).HasMaxLength(200);
+        builder.Property(e => e.Attribuition).HasMaxLength(1000);
         builder.Property(e => e.RelatedUrl).HasMaxLength(256);
         //builder.Property(e => e.IndexedOn);
         builder.Property(e => e.ForeignLandingUrl).HasMaxLength(256);
