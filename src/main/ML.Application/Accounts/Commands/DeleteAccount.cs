@@ -19,7 +19,7 @@ public class DeleteAccountValidator : AbstractValidator<DeleteAccountCommand>
     }
 }
 
-internal class DeleteAccountCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<DeleteAccountCommand, Result>
+public class DeleteAccountCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<DeleteAccountCommand, Result>
 {
     public async Task<Result> Handle(DeleteAccountCommand request, CancellationToken cancellationToken)
     {

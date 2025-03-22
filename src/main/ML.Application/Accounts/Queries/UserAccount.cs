@@ -22,7 +22,7 @@ public class UserAccountValidator : AbstractValidator<UserAccountQuery>
     }
 }
 
-internal class UserAccountQueryHandler(IIdentityService identityService) : IRequestHandler<UserAccountQuery, Result<UserAccountDto>>
+public class UserAccountQueryHandler(IIdentityService identityService) : IRequestHandler<UserAccountQuery, Result<UserAccountDto>>
 {
     public async Task<Result<UserAccountDto>> Handle(UserAccountQuery request, CancellationToken cancellationToken)
     {
