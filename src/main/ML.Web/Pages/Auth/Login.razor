@@ -1,0 +1,146 @@
+﻿@page "/login"
+@layout AuthLayout
+@using ML.Web.Models
+@using ML.Web.Services
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+@attribute [AllowAnonymous]
+
+<PageTitle>Login - MediaLocator</PageTitle>
+
+<div class="login-container">
+    <div class="logo-container">
+        <img src="https://i.imgur.com/4wSDxWP.png" alt="MediaLocator Logo" class="logo" />
+    </div>
+    <div class="login-header">Welcome Back</div>
+
+    <EditForm Model="loginModel" OnValidSubmit="HandleLogin" class="login-form">
+        <DataAnnotationsValidator />
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="error-container">
+                <div class="error-icon">⚠️</div>
+                <div class="error-message">
+                    <div class="error-title">@errorMessage</div>
+                    @if (errorDetails != null && errorDetails.Any())
+                    {
+                        <ul class="error-details">
+                            @foreach (var detail in errorDetails)
+                            {
+                                <li>@detail</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        }
+        <div class="form-group">
+            <label for="email">Email</label>
+            <InputText id="email" @bind-Value="loginModel.Email" class="form-control" />
+            <ValidationMessage For="@(() => loginModel.Email)" />
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <InputText id="password" type="password" @bind-Value="loginModel.Password" class="form-control" />
+            <ValidationMessage For="@(() => loginModel.Password)" />
+            <div class="forgot-password">
+                <a href="forgot-password">Forgot password?</a>
+            </div>
+        </div>
+
+        <button type="submit" class="login-button" disabled="@isLoading">
+            @if (isLoading)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span>Loading...</span>
+            }
+            else
+            {
+                <span>Login</span>
+            }
+        </button>
+    </EditForm>
+
+    <div class="social-login">
+        <button class="social-button">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo">
+            Login with Google
+        </button>
+        <button class="social-button">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/0/01/X-Logo-Round-Color.png" alt="Twitter (X) Logo">
+            Login with Twitter (X)
+        </button>
+    </div>
+
+    <div class="login-footer">
+        <a href="signup">Don't have an account? Sign up</a>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new();
+    private bool isLoading = false;
+    private string errorMessage = string.Empty;
+    private List<string> errorDetails = [];
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorDetails.Clear();
+        try
+        {
+            var result = await AuthService.Login(loginModel.Email, loginModel.Password);
+
+            if (result)
+            {
+                Navigation.NavigateTo("/");
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            if (ex.Data.Contains("ApiErrorResponse"))
+            {
+                var errorData = ex.Data["ApiErrorResponse"] as ErrorResponse;
+                if (errorData != null)
+                {
+                    errorMessage = errorData.Message ?? "Please retry later.";
+                    errorDetails = errorData.Errors?.ToList() ?? [];
+                }
+                else
+                {
+                    errorMessage = "Login failed. Please try again.";
+                }
+            }
+            else
+            {
+                errorMessage = $"Login failed. Status: {ex.StatusCode}. Please check your network connection and try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (ex.Data.Contains("ApiErrorResponse"))
+            {
+                var errorData = ex.Data["ApiErrorResponse"] as ErrorResponse;
+                if (errorData != null)
+                {
+                    errorMessage = errorData.Message ?? "Please retry later.";
+                    errorDetails = errorData.Errors?.ToList() ?? new List<string>();
+                }
+                else
+                {
+                    errorMessage = "Login failed. Please try again.";
+                }
+            }
+            else
+            {
+                errorMessage = "An unexpected error occurred. Please try again.";
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

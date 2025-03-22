@@ -22,6 +22,7 @@ public class AuthenticationController(ISender sender) : BaseController
     public async ValueTask<ActionResult<Result<LoginDto>>> Login([FromBody] LoginCommand command)
     {
         var result = await sender.Send(command);
+        AddRefreshToken(result);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 
@@ -29,6 +30,7 @@ public class AuthenticationController(ISender sender) : BaseController
     public async ValueTask<ActionResult<Result<LoginDto>>> RefreshToken([FromBody] RefreshTokenCommand command)
     {
         var result = await sender.Send(command);
+        AddRefreshToken(result);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 
@@ -61,5 +63,19 @@ public class AuthenticationController(ISender sender) : BaseController
     {
         var result = await sender.Send(command);
         return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
+    private void AddRefreshToken(Result<LoginDto> result)
+    {
+        if (result.Succeeded && result.Data is not null && result.Data.AccessToken is not null)
+        {
+            Response.Cookies.Append("refreshToken", result.Data.AccessToken.RefreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTimeOffset.UtcNow.AddMonths(1)
+            });
+        }
     }
 }

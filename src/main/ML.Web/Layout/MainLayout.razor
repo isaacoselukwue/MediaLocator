@@ -1,0 +1,37 @@
+﻿@using ML.Web.Services
+@inherits LayoutComponentBase
+@inject UserActivityService ActivityService
+@implements IDisposable
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <a href="about" target="_blank" class="about-link">
+                <i class="bi bi-info-circle-fill"></i>
+                <span>About</span>
+            </a>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ActivityService.InitializeHeartbeat();
+        }
+    }
+
+    public void Dispose()
+    {
+        ActivityService.Dispose();
+    }
+}

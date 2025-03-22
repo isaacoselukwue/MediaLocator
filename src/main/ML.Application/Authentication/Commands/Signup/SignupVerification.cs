@@ -17,11 +17,7 @@ internal class SignupVerificationCommandHandler(IIdentityService identityService
         var result = await identityService.ValidateSignupAsync(request.UserId!, request.ActivationToken!);
         if(!result.Item1.Succeeded) return result.Item1;
 
-        Dictionary<string, string> emailData = new()
-        {
-            {"email", result.usersEmail }
-        };
-        await publisher.Publish(new NotificationEvent(result.usersEmail!, "Account Activation Succeeded!", NotificationTypeEnum.SignUpCompleted, emailData), cancellationToken);
+        await publisher.Publish(new NotificationEvent(result.usersEmail!, "Account Activation Succeeded!", NotificationTypeEnum.SignUpCompleted, []), cancellationToken);
         return result.Item1;
     }
 }

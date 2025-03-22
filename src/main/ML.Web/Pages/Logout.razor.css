@@ -1,0 +1,38 @@
+.logout-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+}
+
+.logout-card {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    padding: 2.5rem;
+    text-align: center;
+    max-width: 400px;
+    width: 100%;
+}
+
+.logout-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: #3182ce;
+}
+
+.logout-card h2 {
+    margin-bottom: 1.5rem;
+    color: #2d3748;
+    font-weight: 600;
+}
+
+.spinner-border {
+    margin: 1rem auto;
+    color: #3182ce !important;
+}
+
+.logout-card p {
+    color: #4a5568;
+    margin-top: 1rem;
+}

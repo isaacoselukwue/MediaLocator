@@ -2,15 +2,11 @@
 using ML.Domain.Common;
 
 namespace ML.Infrastructure.Data.Interceptors;
-internal class AuditableEntityInterceptor : SaveChangesInterceptor
+internal class AuditableEntityInterceptor(ICurrentUser currentUser, TimeProvider dateTime) : SaveChangesInterceptor
 {
-    private readonly ICurrentUser _currentUser;
-    private readonly TimeProvider _dateTime;
-    public AuditableEntityInterceptor(ICurrentUser currentUser, TimeProvider dateTime)
-    {
-        _currentUser = currentUser;
-        _dateTime = dateTime;
-    }
+    private readonly ICurrentUser _currentUser = currentUser;
+    private readonly TimeProvider _dateTime = dateTime;
+
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
     {
         UpdateEntities(eventData.Context);

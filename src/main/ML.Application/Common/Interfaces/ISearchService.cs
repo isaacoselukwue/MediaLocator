@@ -19,6 +19,7 @@ public interface ISearchService
         bool isAscendingSorted, 
         int pageNumber, 
         CancellationToken cancellationToken);
+    Task<Result<DailyMediaDto>> GetDailyMediaAsync(CancellationToken cancellationToken);
     Task<Result<UsersSearchHistoryDto>> GetUsersSearchHistory(
         string? title,
         string? startDate,

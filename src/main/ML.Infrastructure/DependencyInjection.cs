@@ -17,6 +17,7 @@ using ML.Infrastructure.OpenVerse;
 using ML.Infrastructure.Queue;
 using ML.Infrastructure.Search;
 using Npgsql;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Polly.Retry;
@@ -108,10 +109,20 @@ public static class DependencyInjection
                     Timeout = TimeSpan.FromSeconds(10)
                 });
             });
-        string serviceName = builder.Configuration["OpenTelemetry:ServiceName"]??"MediaLocator";
+        string serviceName = builder.Configuration["OpenTelemetry:ServiceName"] ?? "MediaLocator";
         builder.Services
             .AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddService(serviceName))
+            .WithMetrics(metrics =>
+            {
+                metrics.AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddNpgsqlInstrumentation()
+                    .AddMeter("Microsoft.AspNetCore.Hosting")
+                    .AddMeter("Microsoft.AspNetCore.Server.Kestrel")
+                    .AddMeter("System.Net.Http")
+                    .AddMeter("System.Net.NameResolution");
+            })
             .WithTracing(tracing =>
             {
                 tracing

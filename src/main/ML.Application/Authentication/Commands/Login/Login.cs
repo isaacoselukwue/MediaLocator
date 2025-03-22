@@ -25,8 +25,8 @@ internal class LoginCommandHandler (IIdentityService identityService, IPublisher
             return result;
         Dictionary<string, string> emailData = new()
         {
-            {"date", DateTime.UtcNow.ToString("dd-MMM-yyyy") },
-            {"time", DateTime.UtcNow.ToString("hh:mm tt") }
+            {"{{date}}", DateTime.UtcNow.ToString("dd-MMM-yyyy") },
+            {"{{time}}", DateTime.UtcNow.ToString("hh:mm tt") }
         };
         await publisher.Publish(new NotificationEvent(request.EmailAddress!, "Sign In Successful!", NotificationTypeEnum.SignInSuccess, emailData), cancellationToken);
         return result;

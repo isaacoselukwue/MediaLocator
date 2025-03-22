@@ -1,0 +1,269 @@
+@page "/admin/search-history"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = "AdminPolicy")]
+@using ML.Web.Models
+@using ML.Web.Services
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.WebUtilities
+@inject IMediaLocatorHttpClient HttpClient
+@inject NavigationManager NavManager
+
+<PageTitle>User Search History - MediaLocator</PageTitle>
+
+<div class="admin-history-container">
+    <h1 class="admin-header">User Search History</h1>
+
+    <div class="filter-section">
+        <div class="filter-form">
+            <div class="filter-group">
+                <label>User Email</label>
+                <input type="email" @bind="emailFilter" placeholder="Filter by email..." />
+            </div>
+
+            <div class="filter-group">
+                <label>Title</label>
+                <input type="text" @bind="titleFilter" placeholder="Filter by title..." />
+            </div>
+
+            <div class="filter-group">
+                <label>Date Range</label>
+                <div class="date-range">
+                    <input type="date" @bind="startDate" />
+                    <span>to</span>
+                    <input type="date" @bind="endDate" />
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <label>User Status</label>
+                <select @bind="statusFilter">
+                    <option value="">All Statuses</option>
+                    <option value="1">Active</option>
+                    <option value="0">Pending</option>
+                    <option value="3">Inactive</option>
+                    <option value="2">Deleted</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>Sort Order</label>
+                <select @bind="isAscendingSorted">
+                    <option value="false">Newest First</option>
+                    <option value="true">Oldest First</option>
+                </select>
+            </div>
+
+            <button class="search-button" @onclick="LoadAdminSearchHistory">
+                Apply Filters
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!searchResults.Any())
+    {
+        <div class="no-results">
+            <i class="bi bi-search"></i>
+            <p>No search history found matching your criteria.</p>
+        </div>
+    }
+    else
+    {
+        <div class="history-list">
+            @foreach (var item in searchResults)
+            {
+                <div class="history-item">
+                    <div class="history-item-content">
+                        <div class="history-item-type">
+                            @if (item.FileType?.Contains("audio") == true || item.FileType?.Contains("mp3") == true)
+                            {
+                                @if (!string.IsNullOrEmpty(item.ThumbNail))
+                                {
+                                    <img src="@item.ThumbNail" alt="@item.Title" class="history-thumbnail" />
+                                }
+                                else
+                                {
+                                    <div class="history-thumbnail audio-thumbnail">
+                                        <div class="audio-thumbnail-icon">
+                                            <i class="bi bi-file-earmark-music"></i>
+                                        </div>
+                                        <div class="audio-thumbnail-waveform">
+                                            @for (int i = 0; i < 5; i++)
+                                            {
+                                                <div class="waveform-bar"></div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                <span>Audio</span>
+                            }
+                            else
+                            {
+                                @if (!string.IsNullOrEmpty(item.ThumbNail))
+                                {
+                                    <img src="@item.ThumbNail" alt="@item.Title" class="history-thumbnail" />
+                                }
+                                else
+                                {
+                                    <div class="history-thumbnail image-placeholder">
+                                        <i class="bi bi-image"></i>
+                                    </div>
+                                }
+                                <span>Image</span>
+                            }
+                        </div>
+
+                        <div class="history-item-details">
+                            <h3>@(string.IsNullOrEmpty(item.Title) ? "Untitled" : item.Title)</h3>
+                            <p><strong>User:</strong> @(string.IsNullOrEmpty(item.UsersEmail) ? "Unknown" : item.UsersEmail)</p>
+                            <p><strong>Creator:</strong> @(string.IsNullOrEmpty(item.Creator) ? "Unknown" : item.Creator)</p>
+                            <p><strong>License:</strong> @(string.IsNullOrEmpty(item.License) ? "Unknown" : item.License)</p>
+                            @if (item.SearchDate.HasValue)
+                            {
+                                <p><strong>Search Date:</strong> @item.SearchDate.Value.ToString("MMM dd, yyyy HH:mm")</p>
+                            }
+                        </div>
+
+                        <div class="history-item-actions">
+                            @if (!string.IsNullOrEmpty(item.Url))
+                            {
+                                <button class="icon-button view-button" title="View Content" @onclick="() => OpenUrl(item.Url)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            }
+                            
+                            @if (!string.IsNullOrEmpty(item.ForeignLandingUrl))
+                            {
+                                <button class="icon-button link-button" title="Open Source" @onclick="() => OpenUrl(item.ForeignLandingUrl)">
+                                    <i class="bi bi-link-45deg"></i>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-controls">
+            <button class="pagination-button" @onclick="() => ChangePage(1)" disabled="@(currentPage <= 1)">
+                <i class="bi bi-chevron-double-left"></i>
+            </button>
+            <button class="pagination-button" @onclick="() => ChangePage(currentPage - 1)" disabled="@(currentPage <= 1)">
+                <i class="bi bi-chevron-left"></i> Previous
+            </button>
+
+            <span class="page-info">
+                Page @currentPage of @totalPages (@totalResultsCount total items)
+            </span>
+
+            <button class="pagination-button"
+            @onclick="() => ChangePage(currentPage + 1)"
+            disabled="@(currentPage >= totalPages)">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+            <button class="pagination-button"
+            @onclick="() => ChangePage(totalPages)"
+            disabled="@(currentPage >= totalPages)">
+                <i class="bi bi-chevron-double-right"></i>
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private string? emailFilter;
+    private string? titleFilter;
+    private DateTime? startDate;
+    private DateTime? endDate;
+    private string? statusFilter;
+    private bool isAscendingSorted = false;
+    private int currentPage = 1;
+    private int totalPages = 1;
+    private int totalResultsCount = 0;
+    private bool isLoading = false;
+    private List<AdminSearchHistoryResult> searchResults = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = NavManager.ToAbsoluteUri(NavManager.Uri);
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("email", out var emailValue))
+        {
+            emailFilter = emailValue.First();
+            await LoadAdminSearchHistory();
+        }
+    }
+
+    private async Task LoadAdminSearchHistory()
+    {
+        isLoading = true;
+        try
+        {
+            string endpoint = $"api/v1/media/admin/search-history?PageNumber={currentPage}&IsAscendingSorted={isAscendingSorted}";
+
+            if (!string.IsNullOrEmpty(emailFilter))
+                endpoint += $"&EmailAddress={Uri.EscapeDataString(emailFilter)}";
+
+            if (!string.IsNullOrEmpty(titleFilter))
+                endpoint += $"&Title={Uri.EscapeDataString(titleFilter)}";
+
+            if (startDate.HasValue)
+                endpoint += $"&StartDate={startDate.Value:yyyy-MM-dd}";
+
+            if (endDate.HasValue)
+                endpoint += $"&EndDate={endDate.Value:yyyy-MM-dd}";
+
+            if (!string.IsNullOrEmpty(statusFilter))
+                endpoint += $"&Status={statusFilter}";
+
+            var result = await HttpClient.GetAsync<ApiResult<AdminSearchHistoryDto>>(endpoint);
+
+            if (result.Succeeded && result.Data is not null)
+            {
+                searchResults = result.Data.Results;
+                totalPages = result.Data.TotalPages;
+                currentPage = result.Data.Page;
+                totalResultsCount = result.Data.TotalResults;
+            }
+            else
+            {
+                searchResults = [];
+                totalPages = 1;
+                totalResultsCount = 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading admin search history: {ex.Message}");
+            searchResults = [];
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ChangePage(int page)
+    {
+        if (page < 1 || page > totalPages)
+            return;
+
+        currentPage = page;
+        await LoadAdminSearchHistory();
+    }
+
+    private void OpenUrl(string? url)
+    {
+        if (!string.IsNullOrEmpty(url))
+        {
+            NavManager.NavigateTo(url, true);
+        }
+    }
+}

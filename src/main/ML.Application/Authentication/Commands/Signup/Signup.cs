@@ -27,8 +27,8 @@ internal class SignupCommandHandler(IIdentityService identityService, IPublisher
         //send email with activation link via event
         Dictionary<string, string> emailData = new()
         {
-            {"token", result.token },
-            {"userid", result.Item1.Message }
+            {"{{token}}", result.token },
+            {"{{userid}}", result.Item1.Message }
         };
         await publisher.Publish(new NotificationEvent(request.EmailAddress!, "Account Activation!", NotificationTypeEnum.SignUpAccountActivation, emailData), cancellationToken);
         return Result.Success("Signup successful. Please check your mail for activation link.");

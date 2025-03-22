@@ -1,0 +1,1233 @@
+@page "/media"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = "UserPolicy")]
+@using ML.Web.Models
+@using ML.Web.Services
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.WebUtilities
+@inject IMediaLocatorHttpClient HttpClient
+@inject NavigationManager NavManager
+@inject IJSRuntime JSRuntime
+@inject ITokenRefreshService TokenRefreshService
+
+<PageTitle>Media Search - MediaLocator</PageTitle>
+
+<div class="media-container">
+    <h1 class="media-header">Media Search</h1>
+
+    <div class="media-tabs">
+        <div class="tab @(activeTab == "audio" ? "active" : "")" @onclick='() => SwitchTab("audio")'>
+            <i class="bi bi-music-note"></i> Audio
+        </div>
+        <div class="tab @(activeTab == "image" ? "active" : "")" @onclick='() => SwitchTab("image")'>
+            <i class="bi bi-image"></i> Images
+        </div>
+        <div class="tab @(activeTab == "history" ? "active" : "")" @onclick='() => SwitchTab("history")'>
+            <i class="bi bi-clock-history"></i> Search History
+        </div>
+    </div>
+
+    <div class="media-content">
+        @if (activeTab == "audio" || activeTab == "image")
+        {
+            <div class="search-container">
+                <div class="search-input-group">
+                    <i class="bi bi-search"></i>
+                    <input type="text" 
+                    placeholder="Search for @(activeTab == "audio" ? "audio" : "images")..." 
+                    @bind="searchQuery" 
+                    @bind:event="oninput"
+                    @onkeypress="HandleKeyPress" />
+                    <button class="search-button" @onclick="PerformSearch" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <span>Search</span>
+                        }
+                    </button>
+                </div>
+
+                <div class="filters-container">
+                    <div class="filter-group">
+                        <label>License</label>
+                        <select @bind="selectedLicense">
+                            <option value="">All Licenses</option>
+                            <option value="0">CC BY</option>
+                            <option value="1">CC BY-NC</option>
+                            <option value="2">CC BY-NC-ND</option>
+                            <option value="3">CC BY-NC-SA</option>
+                            <option value="4">CC BY-ND</option>
+                            <option value="5">CC BY-SA</option>
+                            <option value="6">CC0</option>
+                            <option value="7">PDM</option>
+                            <option value="8">Nc Sampling Plus</option>
+                            <option value="9">Sampling Plus</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>License Type</label>
+                        <select @bind="selectedLicenseType">
+                            <option value="">All License Types</option>
+                            <option value="1">Commercial</option>
+                            <option value="2">Modification</option>
+                            <option value="3">All Cc</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Category</label>
+                        <select @bind="selectedCategory">
+                            <option value="">All Categories</option>
+                            @if (activeTab == "audio")
+                            {
+                                <option value="0">Audio Book</option>
+                                <option value="1">Music</option>
+                                <option value="2">News</option>
+                                <option value="3">Podcast</option>
+                                <option value="4">Pronunciation</option>
+                                <option value="5">Sound Effect</option>
+                            }
+                            else
+                            {
+                                <option value="0">Digitalised Artwork</option>
+                                <option value="1">Illustration</option>
+                                <option value="2">Photograph</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            @if (isLoading)
+            {
+                <div class="loading-container">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            }
+            else if (searchPerformed && (!audioResults.Any() && activeTab == "audio") || (!imageResults.Any() && activeTab == "image"))
+            {
+                <div class="no-results">
+                    <i class="bi bi-search"></i>
+                    <p>No @(activeTab)s found matching your search criteria.</p>
+                </div>
+            }
+            else if (searchPerformed)
+            {
+                <div class="results-container">
+                    <p class="results-info">
+                        Found @(activeTab == "audio" ? totalAudioResults : totalImageResults) 
+                        @(activeTab) results for "@searchQuery"
+                    </p>
+
+                    <div class="media-grid">
+                        @if (activeTab == "audio")
+                        {
+                            @foreach (var audio in audioResults)
+                            {
+                                <div class="media-item audio-item" @onclick="() => OpenAudioDetails(audio.Id)">
+                                    <div class="media-preview audio-preview">
+                                        @if (!string.IsNullOrEmpty(audio.ThumbNail))
+                                        {
+                                            <img src="@audio.ThumbNail" alt="@audio.Title" loading="lazy" />
+                                        }
+                                        else
+                                        {
+                                            <div class="audio-thumbnail">
+                                                <div class="audio-thumbnail-icon">
+                                                    <i class="bi bi-file-earmark-music"></i>
+                                                </div>
+                                                <div class="audio-thumbnail-waveform">
+                                                    @for (int i = 0; i < 5; i++)
+                                                    {
+                                                        <div class="waveform-bar"></div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="media-info">
+                                        <h3 class="media-title">@(string.IsNullOrEmpty(audio.Title) ? "Untitled Audio" : TruncateText(audio.Title, 40))</h3>
+                                        <p class="media-creator">By: @(string.IsNullOrEmpty(audio.Creator) ? "Unknown" : audio.Creator)</p>
+                                        <div class="media-item-actions">
+                                            <button class="action-button play-button" title="Play Audio" @onclick="(e) => PlayAudio(e, audio)" @onclick:stopPropagation>
+                                                <i class="bi bi-play-circle"></i>
+                                            </button>
+                                            <button class="action-button save-button" title="Save to History" @onclick="(e) => SaveToHistory(e, audio.Id, SearchTypeEnum.Audio)" @onclick:stopPropagation>
+                                                <i class="bi bi-bookmark-plus"></i>
+                                            </button>
+                                            <button class="action-button download-button" title="Download" @onclick="(e) => DownloadMedia(e, audio.Url, audio.Title, audio.FileType)" @onclick:stopPropagation>
+                                                <i class="bi bi-download"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            @foreach (var image in imageResults)
+                            {
+                                <div class="media-item image-item" @onclick="() => OpenImageDetails(image.Id)">
+                                    <div class="media-preview image-preview">
+                                        @if (!string.IsNullOrEmpty(image.ThumbNail))
+                                        {
+                                            <img src="@image.ThumbNail" alt="@image.Title" loading="lazy" />
+                                        }
+                                        else
+                                        {
+                                            <div class="placeholder-image">
+                                                <i class="bi bi-image"></i>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="media-info">
+                                        <h3 class="media-title">@(string.IsNullOrEmpty(image.Title) ? "Untitled Image" : TruncateText(image.Title, 40))</h3>
+                                        <p class="media-creator">By: @(string.IsNullOrEmpty(image.Creator) ? "Unknown" : image.Creator)</p>
+                                        <div class="media-item-actions">
+                                            <button class="action-button view-button" title="View Full Size" @onclick="(e) => ViewFullImage(e, image.Url)" @onclick:stopPropagation>
+                                                <i class="bi bi-fullscreen"></i>
+                                            </button>
+                                            <button class="action-button save-button" title="Save to History" @onclick="(e) => SaveToHistory(e, image.Id, SearchTypeEnum.Image)" @onclick:stopPropagation>
+                                                <i class="bi bi-bookmark-plus"></i>
+                                            </button>
+                                            <button class="action-button download-button" title="Download" @onclick="(e) => DownloadMedia(e, image.Url, image.Title, image.FileType)" @onclick:stopPropagation>
+                                                <i class="bi bi-download"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="pagination-controls">
+                        <button class="pagination-button" @onclick="() => ChangePage(1)" disabled="@(currentPage <= 1)">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </button>
+                        <button class="pagination-button" @onclick="() => ChangePage(currentPage - 1)" disabled="@(currentPage <= 1)">
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </button>
+
+                        <span class="page-info">
+                            Page @currentPage of @(activeTab == "audio" ? totalAudioPages : totalImagePages)
+                        </span>
+
+                        @{
+                            var maxPages = activeTab == "audio" ? totalAudioPages : totalImagePages;
+                        }
+
+                        <button class="pagination-button"
+                        @onclick="() => ChangePage(currentPage + 1)"
+                        disabled="@(currentPage >= maxPages)">
+                            Next <i class="bi bi-chevron-right"></i>
+                        </button>
+                        <button class="pagination-button"
+                        @onclick="() => ChangePage(maxPages)"
+                        disabled="@(currentPage >= maxPages)">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </button>
+                    </div>
+                </div>
+            }
+        }
+        else if (activeTab == "history")
+        {
+            <div class="history-container">
+                <h2>Your Search History</h2>
+
+                <div class="history-filters">
+                    <div class="filter-group">
+                        <label>Title</label>
+                        <input type="text" placeholder="Filter by title..." @bind="historyTitleFilter" @bind:event="oninput" />
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Date Range</label>
+                        <div class="date-range">
+                            <input type="date" @bind="historyStartDate" />
+                            <span>to</span>
+                            <input type="date" @bind="historyEndDate" />
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Sort Order</label>
+                        <select @bind="historySortAscending">
+                            <option value="false">Newest First</option>
+                            <option value="true">Oldest First</option>
+                        </select>
+                    </div>
+
+                    <button class="search-button" @onclick="FetchSearchHistory">
+                        Apply Filters
+                    </button>
+                </div>
+
+                @if (isLoadingHistory)
+                {
+                    <div class="loading-container">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                }
+                else if (!searchHistoryResults.Any())
+                {
+                    <div class="no-results">
+                        <i class="bi bi-clock-history"></i>
+                        <p>No search history found.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="history-list">
+                        @foreach (var item in searchHistoryResults)
+                        {
+                            <div class="history-item">
+                                <div class="history-item-content">
+                                    <div class="history-item-type">
+                                        @if (item.FileType?.Contains("audio") == true || item.FileType?.Contains("mp3") == true)
+                                        {
+                                            @if (!string.IsNullOrEmpty(item.ThumbNail))
+                                            {
+                                                <img src="@item.ThumbNail" alt="@item.Title" class="history-thumbnail" />
+                                            }
+                                            else
+                                            {
+                                                <div class="history-thumbnail audio-thumbnail">
+                                                    <div class="audio-thumbnail-icon">
+                                                        <i class="bi bi-file-earmark-music"></i>
+                                                    </div>
+                                                    <div class="audio-thumbnail-waveform">
+                                                        @for (int i = 0; i < 5; i++)
+                                                        {
+                                                            <div class="waveform-bar"></div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
+                                            <span>Audio</span>
+                                        }
+                                        else
+                                        {
+                                            @if (!string.IsNullOrEmpty(item.ThumbNail))
+                                            {
+                                                <img src="@item.ThumbNail" alt="@item.Title" class="history-thumbnail" />
+                                            }
+                                            else
+                                            {
+                                                <div class="history-thumbnail image-placeholder">
+                                                    <i class="bi bi-image"></i>
+                                                </div>
+                                            }
+                                            <span>Image</span>
+                                        }
+                                    </div>
+
+                                    <div class="history-item-details">
+                                        <h3>@(string.IsNullOrEmpty(item.Title) ? "Untitled" : item.Title)</h3>
+                                        <p>Creator: @(string.IsNullOrEmpty(item.Creator) ? "Unknown" : item.Creator)</p>
+                                        <p>License: @(string.IsNullOrEmpty(item.License) ? "Unknown" : item.License)</p>
+                                        <p>Date: @item.SearchDateTime.ToString("MMM dd, yyyy")</p>
+                                    </div>
+
+                                    <div class="history-item-actions">
+                                        @{
+                                            var isAudioFile = item.FileType?.Contains("audio") == true || item.FileType?.Contains("mp3") == true;
+                                        }
+                                        <button class="action-button view-button" title="View Media"
+                                        @onclick="() => ViewHistoryItem(item, isAudioFile)">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+
+                                        <button class="action-button delete-button" title="Remove from History"
+                                        @onclick="() => DeleteHistoryItem(item.Id)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="pagination-controls">
+                        <button class="pagination-button" @onclick="() => ChangeHistoryPage(1)" disabled="@(historyCurrentPage <= 1)">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </button>
+                        <button class="pagination-button" @onclick="() => ChangeHistoryPage(historyCurrentPage - 1)" disabled="@(historyCurrentPage <= 1)">
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </button>
+
+                        <span class="page-info">
+                            Page @historyCurrentPage of @historyTotalPages
+                        </span>
+
+                        <button class="pagination-button"
+                        @onclick="() => ChangeHistoryPage(historyCurrentPage + 1)"
+                        disabled="@(historyCurrentPage >= historyTotalPages)">
+                            Next <i class="bi bi-chevron-right"></i>
+                        </button>
+                        <button class="pagination-button"
+                        @onclick="() => ChangeHistoryPage(historyTotalPages)"
+                        disabled="@(historyCurrentPage >= historyTotalPages)">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </button>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Audio Player Modal -->
+@if (showAudioPlayer)
+{
+    <div class="modal-backdrop" @onclick="CloseAudioPlayer"></div>
+    <div class="modal audio-player-modal" @onclick:stopPropagation>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>@(currentAudio?.Title ?? "Audio Player")</h3>
+                <button class="close-button" @onclick="CloseAudioPlayer">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="audio-player-container">
+                    <!-- Left side: details -->
+                    <div class="audio-details-grid">
+                        <div class="info-group">
+                            <h4>Audio Details</h4>
+                            <p><strong>Title:</strong> @(currentAudio?.Title ?? "Unknown")</p>
+                            <p>
+                                <strong>Creator:</strong> 
+                                @if (!string.IsNullOrEmpty(currentAudio?.CreatorUrl))
+                                {
+                                    <a href="@currentAudio.CreatorUrl" target="_blank">@(currentAudio?.Creator ?? "Unknown")</a>
+                                }
+                                else
+                                {
+                                    @(currentAudio?.Creator ?? "Unknown")
+                                }
+                            </p>
+                            <p>
+                                <strong>License:</strong> 
+                                @if (!string.IsNullOrEmpty(currentAudio?.LicenseUrl))
+                                {
+                                    <a href="@currentAudio.LicenseUrl" target="_blank">@(currentAudio?.License ?? "Unknown") @(currentAudio?.LicenseVersion ?? "")</a>
+                                }
+                                else
+                                {
+                                    @(currentAudio?.License ?? "Unknown") @(currentAudio?.LicenseVersion ?? "")
+                                }
+                            </p>
+                            @if (!string.IsNullOrEmpty(currentAudio?.Category))
+                            {
+                                <p><strong>Category:</strong> @currentAudio.Category</p>
+                            }
+                            @if (currentAudio?.Genres is not null && currentAudio.Genres.Any())
+                            {
+                                <p><strong>Genres:</strong> # @string.Join(" #", currentAudio.Genres)</p>
+                            }
+                            @if (audioDuration > 0)
+                            {
+                                <p><strong>Duration:</strong> @FormatDuration(audioDuration)</p>
+                            }
+                        </div>
+
+                        <div class="info-group">
+                            <h4>Source Information</h4>
+                            <p><strong>Provider:</strong> @(currentAudio?.Provider ?? "Unknown")</p>
+                            <p><strong>Source:</strong> @(currentAudio?.Source ?? "Unknown")</p>
+                            @if (!string.IsNullOrEmpty(currentAudio?.Description))
+                            {
+                                <p><strong>Description:</strong> @currentAudio.Description</p>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Right side: audio player -->
+                    <div class="audio-player-wrapper">
+                        @if (audioLoadingError)
+                        {
+                            <div class="audio-error">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <p>Unable to load audio. The audio may be unavailable or in an unsupported format.</p>
+                                @if (!string.IsNullOrEmpty(currentAudio?.ForeignLandingUrl))
+                                {
+                                    <a href="@currentAudio.ForeignLandingUrl" target="_blank" class="btn btn-primary mt-2">
+                                        Listen on Original Site
+                                    </a>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- Add thumbnail for better visualization -->
+                            @if (!string.IsNullOrEmpty(currentAudio?.ThumbNail))
+                            {
+                                <img src="@currentAudio.ThumbNail" alt="@currentAudio.Title" class="audio-player-thumbnail" />
+                            }
+                            else
+                            {
+                                <div class="audio-thumbnail">
+                                    <div class="audio-thumbnail-icon">
+                                        <i class="bi bi-music-note"></i>
+                                    </div>
+                                    <div class="audio-thumbnail-waveform">
+                                        <div class="waveform-bar"></div>
+                                        <div class="waveform-bar"></div>
+                                        <div class="waveform-bar"></div>
+                                        <div class="waveform-bar"></div>
+                                        <div class="waveform-bar"></div>
+                                    </div>
+                                </div>
+                            }
+                            <audio controls class="audio-player" @ref="audioPlayerElement" @onloadedmetadata="OnAudioLoaded">
+                                <source src="@currentAudio?.Url" type="@GetSafeAudioType(currentAudio?.FileType ?? "")" />
+                                Your browser does not support the audio element.
+                            </audio>
+                        }
+                    </div>
+
+                    <!-- Bottom: action buttons -->
+                    <div class="audio-player-actions">
+                        @if (!isViewingFromHistory)
+                        {
+                            <button class="action-button save-button"
+                            disabled="@audioLoadingError"
+                            @onclick="@(() => SaveToHistory(null, currentAudio?.Id ?? "", SearchTypeEnum.Audio))">
+                                <i class="bi bi-bookmark-plus"></i> Save to History
+                            </button>
+                        }
+                        <button class="action-button download-button"
+                        disabled="@string.IsNullOrEmpty(currentAudio?.Url)"
+                        @onclick="@(() => DownloadMedia(null, currentAudio?.Url ?? "", currentAudio?.Title ?? "", currentAudio?.FileType ?? ""))">
+                            <i class="bi bi-download"></i> Download
+                        </button>
+                        @if (!string.IsNullOrEmpty(currentAudio?.ForeignLandingUrl))
+                        {
+                            <a href="@currentAudio.ForeignLandingUrl" target="_blank" class="action-button outline">
+                                <i class="bi bi-box-arrow-up-right"></i> View Source
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Image Viewer Modal -->
+@if (showImageViewer)
+{
+    <div class="modal-backdrop" @onclick="CloseImageViewer"></div>
+    <div class="modal image-viewer-modal" @onclick:stopPropagation>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>@(currentImage?.Title ?? "Image Viewer")</h3>
+                <button class="close-button" @onclick="CloseImageViewer">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="image-viewer-container">
+                    <!-- Left side: details -->
+                    <div class="image-details-grid">
+                        <div class="image-viewer-info">
+                            <div class="info-group">
+                                <h4>Image Details</h4>
+                                <p><strong>Creator:</strong> <a href="@currentImage?.CreatorUrl" target="_blank">@(currentImage?.Creator ?? "Unknown")</a></p>
+                                <p><strong>License:</strong> <a href="@currentImage?.LicenseUrl" target="_blank">@(currentImage?.License ?? "Unknown") @(currentImage?.LicenseVersion ?? "")</a></p>
+                                @if (!string.IsNullOrEmpty(currentImage?.Attribuition))
+                                {
+                                    <p><strong>Attribution:</strong> @currentImage.Attribuition</p>
+                                }
+                                @if (!string.IsNullOrEmpty(currentImage?.Category))
+                                {
+                                    <p><strong>Category:</strong> @currentImage.Category</p>
+                                }
+                            </div>
+
+                            <div class="info-group">
+                                <h4>Source Information</h4>
+                                <p><strong>Provider:</strong> @(currentImage?.Provider ?? "Unknown")</p>
+                                <p><strong>Source:</strong> @(currentImage?.Source ?? "Unknown")</p>
+                                @if (!string.IsNullOrEmpty(currentImage?.ForeignLandingUrl))
+                                {
+                                    <p>
+                                        <a href="@currentImage.ForeignLandingUrl" target="_blank" class="source-link">
+                                            <i class="bi bi-box-arrow-up-right"></i> View at Source
+                                        </a>
+                                    </p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right side: image display -->
+                    <div class="image-display">
+                        @if (!string.IsNullOrEmpty(currentImage?.Url))
+                        {
+                            <img src="@currentImage.Url" alt="@currentImage.Title" class="full-image" />
+                        }
+                        else
+                        {
+                            <div class="error-message">Image not available</div>
+                        }
+                    </div>
+
+                    <!-- Bottom: action buttons -->
+                    <div class="image-viewer-actions">
+                        @if (!isViewingFromHistory)
+                        {
+                            <button class="action-button save-button" @onclick="() => SaveToHistory(null, currentImage.Id, SearchTypeEnum.Image)">
+                                <i class="bi bi-bookmark-plus"></i> Save to History
+                            </button>
+                        }
+                        <button class="action-button download-button" @onclick="() => DownloadMedia(null, currentImage.Url, currentImage.Title, currentImage.FileType ?? GetImageFileType(currentImage.Url))">
+                            <i class="bi bi-download"></i> Download
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+@code {
+    private string activeTab = "audio";
+
+    private string searchQuery = "";
+    private string? selectedLicense;
+    private string? selectedLicenseType;
+    private string? selectedCategory;
+    private int currentPage = 1;
+    private bool isLoading = false;
+    private bool searchPerformed = false;
+
+    private List<AudioSearchResult> audioResults = [];
+    private int totalAudioResults = 0;
+    private int totalAudioPages = 0;
+
+    private List<ImageSearchResult> imageResults = [];
+    private int totalImageResults = 0;
+    private int totalImagePages = 0;
+
+    private bool showAudioPlayer = false;
+    private AudioSearchResult? currentAudio;
+
+    private ElementReference audioPlayerElement;
+    private double audioDuration = 0;
+    private bool audioLoadingError = false;
+
+    private bool showImageViewer = false;
+    private ImageSearchResult? currentImage;
+
+    private List<UsersSearchHistoryResult> searchHistoryResults = [];
+    private string? historyTitleFilter;
+    private DateTime? historyStartDate;
+    private DateTime? historyEndDate;
+    private bool historySortAscending = false;
+    private int historyCurrentPage = 1;
+    private int historyTotalPages = 1;
+    private bool isLoadingHistory = false;
+    private bool isViewingFromHistory = false;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await TokenRefreshService.CheckAndRefreshTokenAsync();
+
+        var uri = NavManager.ToAbsoluteUri(NavManager.Uri);
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("q", out var queryValue))
+        {
+            searchQuery = queryValue.First();
+            await PerformSearch();
+        }
+        else if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("tab", out var tabValue))
+        {
+            activeTab = tabValue.First();
+            if (activeTab == "history")
+            {
+                await FetchSearchHistory();
+            }
+        }
+    }
+
+    private async Task SwitchTab(string tab)
+    {
+        activeTab = tab;
+        if (tab == "history")
+        {
+            await FetchSearchHistory();
+        }
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await PerformSearch();
+        }
+    }
+
+    private string TruncateText(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+            return text;
+
+        return text.Substring(0, maxLength) + "...";
+    }
+
+    private async Task PerformSearch()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+            return;
+
+        isLoading = true;
+        searchPerformed = true;
+
+        try
+        {
+            if (activeTab == "audio")
+            {
+                await SearchAudio();
+            }
+            else if (activeTab == "image")
+            {
+                await SearchImages();
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SearchAudio()
+    {
+        OpenLicenseEnum? license = null;
+        if (!string.IsNullOrEmpty(selectedLicense) && int.TryParse(selectedLicense, out int licenseValue))
+        {
+            license = (OpenLicenseEnum)licenseValue;
+        }
+
+        OpenLicenseTypeEnum? licenseType = null;
+        if (!string.IsNullOrEmpty(selectedLicenseType) && int.TryParse(selectedLicenseType, out int licenseTypeValue))
+        {
+            licenseType = (OpenLicenseTypeEnum)licenseTypeValue;
+        }
+
+        OpenAudioCategoryEnum? category = null;
+        if (!string.IsNullOrEmpty(selectedCategory) && int.TryParse(selectedCategory, out int categoryValue))
+        {
+            category = (OpenAudioCategoryEnum)categoryValue;
+        }
+
+        string endpoint = $"api/v1/media/audio/search?SearchQuery={searchQuery}&PageNumber={currentPage}";
+
+        if (license != null)
+            endpoint += $"&License={license}";
+
+        if (licenseType != null)
+            endpoint += $"&LicenseType={licenseType}";
+
+        if (category != null)
+            endpoint += $"&Category={category}";
+
+        try
+        {
+            var result = await HttpClient.GetAsync<ApiResult<AudioSearchDto>>(endpoint);
+
+            if (result.Succeeded && result.Data != null)
+            {
+                audioResults = result.Data.Results;
+                totalAudioResults = result.Data.TotalResults;
+                totalAudioPages = result.Data.TotalPages;
+                currentPage = result.Data.Page;
+            }
+            else
+            {
+                audioResults = new List<AudioSearchResult>();
+                totalAudioResults = 0;
+                totalAudioPages = 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error searching audio: {ex.Message}");
+            audioResults = new List<AudioSearchResult>();
+        }
+    }
+
+    private string GetSafeAudioType(string fileType)
+    {
+        if (string.IsNullOrEmpty(fileType))
+            return "audio/mpeg";
+
+        if (fileType == "mp32" || fileType.EndsWith("mp32"))
+            return "audio/mpeg";
+
+        if (!fileType.StartsWith("audio/"))
+            return $"audio/{fileType}";
+
+        return fileType;
+    }
+
+    private async Task OnAudioLoaded()
+    {
+        try
+        {
+            audioLoadingError = false;
+            audioDuration = await JSRuntime.InvokeAsync<double>("getAudioDuration", audioPlayerElement);
+
+            await JSRuntime.InvokeVoidAsync("playAudio", audioPlayerElement);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Audio loading error: {ex.Message}");
+            audioLoadingError = true;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task SearchImages()
+    {
+        OpenLicenseEnum? license = null;
+        if (!string.IsNullOrEmpty(selectedLicense) && int.TryParse(selectedLicense, out int licenseValue))
+        {
+            license = (OpenLicenseEnum)licenseValue;
+        }
+
+        OpenLicenseTypeEnum? licenseType = null;
+        if (!string.IsNullOrEmpty(selectedLicenseType) && int.TryParse(selectedLicenseType, out int licenseTypeValue))
+        {
+            licenseType = (OpenLicenseTypeEnum)licenseTypeValue;
+        }
+
+        OpenImageCategoryEnum? category = null;
+        if (!string.IsNullOrEmpty(selectedCategory) && int.TryParse(selectedCategory, out int categoryValue))
+        {
+            category = (OpenImageCategoryEnum)categoryValue;
+        }
+
+        string endpoint = $"api/v1/media/image/search?SearchQuery={searchQuery}&PageNumber={currentPage}";
+
+        if (license != null)
+            endpoint += $"&License={license}";
+
+        if (licenseType != null)
+            endpoint += $"&LicenseType={licenseType}";
+
+        if (category != null)
+            endpoint += $"&Category={category}";
+
+        try
+        {
+            var result = await HttpClient.GetAsync<ApiResult<ImageSearchDto>>(endpoint);
+
+            if (result.Succeeded && result.Data != null)
+            {
+                imageResults = result.Data.Results;
+                totalImageResults = result.Data.TotalResults;
+                totalImagePages = result.Data.TotalPages;
+                currentPage = result.Data.Page;
+            }
+            else
+            {
+                imageResults = new List<ImageSearchResult>();
+                totalImageResults = 0;
+                totalImagePages = 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error searching images: {ex.Message}");
+            imageResults = new List<ImageSearchResult>();
+        }
+    }
+
+    private async Task ChangePage(int page)
+    {
+        if (page < 1)
+            return;
+
+        currentPage = page;
+        await PerformSearch();
+    }
+
+    private async Task OpenAudioDetails(string id)
+    {
+        isViewingFromHistory = false;
+
+        var audioFromResults = audioResults.FirstOrDefault(a => a.Id == id);
+
+        if (audioFromResults is not null)
+        {
+            currentAudio = audioFromResults;
+            showAudioPlayer = true;
+            await Task.Delay(100);
+
+            try
+            {
+                audioDuration = await JSRuntime.InvokeAsync<double>("getAudioDuration", audioPlayerElement);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Failed to get audio duration: {ex.Message}");
+            }
+
+            return;
+        }
+
+        isLoading = true;
+        try
+        {
+            var result = await HttpClient.GetAsync<ApiResult<AudioSearchResult>>($"api/v1/media/audio/{id}");
+
+            if (result.Succeeded && result.Data is not null)
+            {
+                currentAudio = result.Data;
+                showAudioPlayer = true;
+                await Task.Delay(100);
+                try
+                {
+                    audioDuration = await JSRuntime.InvokeAsync<double>("getAudioDuration", audioPlayerElement);
+                }
+                catch {  }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error getting audio details: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string FormatDuration(double seconds)
+    {
+        TimeSpan time = TimeSpan.FromSeconds(seconds);
+        if (time.Hours > 0)
+        {
+            return $"{time.Hours}:{time.Minutes:D2}:{time.Seconds:D2}";
+        }
+        return $"{time.Minutes}:{time.Seconds:D2}";
+    }
+
+    private async Task PlayAudio(MouseEventArgs e, AudioSearchResult audio)
+    {
+        try
+        {
+            isViewingFromHistory = false;
+            audioLoadingError = false;
+            currentAudio = audio;
+            showAudioPlayer = true;
+            audioDuration = 0;
+            StateHasChanged();
+
+            await Task.Delay(200);
+
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("showModalDebug");
+
+                audioDuration = await JSRuntime.InvokeAsync<double>("getAudioDuration", audioPlayerElement);
+                Console.WriteLine($"Audio duration: {audioDuration}");
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Failed to get audio duration: {ex}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"PlayAudio error: {ex}");
+            audioLoadingError = true;
+            StateHasChanged();
+        }
+    }
+
+
+
+    private async Task OpenImageDetails(string id)
+    {
+        isViewingFromHistory = false;
+        var imageFromResults = imageResults.FirstOrDefault(i => i.Id == id);
+
+        if (imageFromResults != null)
+        {
+            currentImage = imageFromResults;
+            showImageViewer = true;
+            return;
+        }
+
+        isLoading = true;
+        try
+        {
+            var result = await HttpClient.GetAsync<ApiResult<ImageSearchResult>>($"api/v1/media/image/{id}");
+
+            if (result.Succeeded && result.Data != null)
+            {
+                currentImage = result.Data;
+                showImageViewer = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error getting image details: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ViewFullImage(MouseEventArgs e, string imageUrl)
+    {
+        JSRuntime.InvokeVoidAsync("open", imageUrl, "_blank");
+    }
+
+    private void CloseAudioPlayer()
+    {
+        showAudioPlayer = false;
+        currentAudio = null;
+        isViewingFromHistory = false;
+    }
+
+    private void CloseImageViewer()
+    {
+        showImageViewer = false;
+        currentImage = null;
+        isViewingFromHistory = false;
+    }
+
+    private async Task SaveToHistory(MouseEventArgs? e, string id, SearchTypeEnum type)
+    {
+        try
+        {
+            AddSearchHistoryRequest request = new()
+            {
+                SearchId = id,
+                SearchType = type
+            };
+
+            var result = await HttpClient.PostAsync<ApiResult, AddSearchHistoryRequest>(
+                "api/v1/media/search-history", 
+                request);
+
+            if (result.Succeeded)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Added to search history successfully.");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", result.Message ?? "Failed to add to search history.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving to history: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "An error occurred while saving to search history.");
+        }
+    }
+
+    private async Task DownloadMedia(MouseEventArgs? e, string url, string title, string fileType)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(url))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Download URL not available.");
+                return;
+            }
+
+            string fileName = string.IsNullOrEmpty(title) ? "download" : title;
+
+            if (!string.IsNullOrEmpty(fileType))
+            {
+                string extension = fileType.Contains("/") ? fileType.Split('/').Last() : fileType;
+
+                if (string.Equals(extension, "mp32", StringComparison.OrdinalIgnoreCase))
+                    extension = "mp3";
+
+                if (!fileName.EndsWith($".{extension}", StringComparison.OrdinalIgnoreCase))
+                {
+                    fileName += $".{extension}";
+                }
+            }
+
+            await JSRuntime.InvokeVoidAsync("downloadFile", url, fileName);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Download error: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Failed to download file. Please try again.");
+        }
+    }
+
+    private string GetImageFileType(string url)
+    {
+        if (string.IsNullOrEmpty(url))
+            return "jpg";
+
+        string extension = Path.GetExtension(url).ToLowerInvariant();
+        if (string.IsNullOrEmpty(extension))
+            return "jpg";
+
+        return extension.TrimStart('.');
+    }
+
+    private async Task FetchSearchHistory()
+    {
+        isLoadingHistory = true;
+
+        try
+        {
+            string endpoint = $"api/v1/media/search-history?PageNumber={historyCurrentPage}&IsAscendingSorted={historySortAscending}";
+
+            if (!string.IsNullOrEmpty(historyTitleFilter))
+                endpoint += $"&Title={historyTitleFilter}";
+
+            if (historyStartDate.HasValue)
+                endpoint += $"&StartDateTime={historyStartDate.Value:yyyy-MM-dd}";
+
+            if (historyEndDate.HasValue)
+                endpoint += $"&EndDateTime={historyEndDate.Value:yyyy-MM-dd}";
+
+            var result = await HttpClient.GetAsync<ApiResult<PaginatedSearchHistoryDto>>(endpoint);
+
+            if (result.Succeeded && result.Data != null)
+            {
+                searchHistoryResults = result.Data.Results;
+                historyTotalPages = result.Data.TotalPages;
+                historyCurrentPage = result.Data.Page;
+            }
+            else
+            {
+                searchHistoryResults = [];
+                historyTotalPages = 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching search history: {ex.Message}");
+            searchHistoryResults = [];
+        }
+        finally
+        {
+            isLoadingHistory = false;
+        }
+    }
+
+    private async Task ChangeHistoryPage(int page)
+    {
+        if (page < 1 || page > historyTotalPages)
+            return;
+
+        historyCurrentPage = page;
+        await FetchSearchHistory();
+    }
+
+    private async Task ViewHistoryItem(UsersSearchHistoryResult item, bool isAudio)
+    {
+        isViewingFromHistory = true;
+        if (isAudio)
+        {
+            AudioSearchResult audio = new()
+            {
+                Id = item.SearchId,
+                Title = item.Title,
+                Creator = item.Creator,
+                License = item.License,
+                FileType = item.FileType,
+                ThumbNail = item.ThumbNail,
+                Url = item.Url,
+                LicenseUrl = item.LicenseUrl,
+                CreatorUrl = item.CreatorUrl,
+                LicenseVersion = item.LicenseVersion,
+                Category = item.Category,
+                Provider = item.Provider,
+                Source = item.Source,
+                ForeignLandingUrl = item.ForeignLandingUrl,
+                Attribuition = $"{item.Title} by {item.Creator}"
+            };
+
+            currentAudio = audio;
+            showAudioPlayer = true;
+
+            await Task.Delay(100);
+            try
+            {
+                audioDuration = await JSRuntime.InvokeAsync<double>("getAudioDuration", audioPlayerElement);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Failed to get audio duration: {ex.Message}");
+            }
+        }
+        else
+        {
+            ImageSearchResult image = new()
+            {
+                Id = item.SearchId,
+                Title = item.Title,
+                Creator = item.Creator,
+                License = item.License,
+                FileType = item.FileType,
+                ThumbNail = item.ThumbNail,
+                Url = item.Url,
+                LicenseUrl = item.LicenseUrl,
+                CreatorUrl = item.CreatorUrl,
+                LicenseVersion = item.LicenseVersion,
+                Category = item.Category,
+                Source = item.Source,
+                Provider = item.Provider,
+                ForeignLandingUrl = item.ForeignLandingUrl,
+                Attribuition = $"{item.Title} by {item.Creator}"
+            };
+
+            currentImage = image;
+            showImageViewer = true;
+        }
+    }
+
+    private async Task DeleteHistoryItem(string id)
+    {
+        try
+        {
+            var result = await HttpClient.DeleteAsync<ApiResult>($"api/v1/media/search-history/{id}");
+
+            if (result.Succeeded)
+            {
+                searchHistoryResults = searchHistoryResults.Where(i => i.Id != id).ToList();
+
+                await JSRuntime.InvokeVoidAsync("alert", "Item removed from history.");
+
+                if (!searchHistoryResults.Any() && historyCurrentPage > 1)
+                {
+                    historyCurrentPage--;
+                    await FetchSearchHistory();
+                }
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", result.Message ?? "Failed to remove item from history.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting history item: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "An error occurred while removing the item from history.");
+        }
+    }
+}
