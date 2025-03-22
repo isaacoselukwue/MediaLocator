@@ -25,7 +25,7 @@ public class ChangeUserRoleValidator : AbstractValidator<ChangeUserRoleCommand>
     }
 }
 
-internal class ChangeUserRoleCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<ChangeUserRoleCommand, Result>
+public class ChangeUserRoleCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<ChangeUserRoleCommand, Result>
 {
     public async Task<Result> Handle(ChangeUserRoleCommand request, CancellationToken cancellationToken)
     {

@@ -11,7 +11,7 @@ public record ChangePasswordCommand : IRequest<Result>
     public string? ConfirmNewPassword { get; set; }
 }
 
-internal class ChangePasswordCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<ChangePasswordCommand, Result>
+public class ChangePasswordCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<ChangePasswordCommand, Result>
 {
     public async Task<Result> Handle(ChangePasswordCommand request, CancellationToken cancellationToken)
     {

@@ -19,7 +19,7 @@ public class ActivateAccountValidator : AbstractValidator<ActivateAccountCommand
     }
 }
 
-internal class ActivateAccountCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<ActivateAccountCommand, Result>
+public class ActivateAccountCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<ActivateAccountCommand, Result>
 {
     public async Task<Result> Handle(ActivateAccountCommand request, CancellationToken cancellationToken)
     {

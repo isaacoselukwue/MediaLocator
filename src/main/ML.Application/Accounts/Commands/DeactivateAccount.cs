@@ -9,7 +9,7 @@ public record DeactivateAccountCommand : IRequest<Result>
 {
 }
 
-internal class DeactivateAccountCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<DeactivateAccountCommand, Result>
+public class DeactivateAccountCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<DeactivateAccountCommand, Result>
 {
     public async Task<Result> Handle(DeactivateAccountCommand request, CancellationToken cancellationToken)
     {
