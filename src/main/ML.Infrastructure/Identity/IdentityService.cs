@@ -6,7 +6,7 @@ using System.Security.Claims;
 using System.Web;
 
 namespace ML.Infrastructure.Identity;
-internal class IdentityService( 
+public class IdentityService( 
     SignInManager<Users> signInManager, 
     UserManager<Users> userManager, 
     IJwtService jwtService, 

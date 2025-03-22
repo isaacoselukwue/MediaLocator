@@ -29,7 +29,7 @@ public class PasswordResetValidator : AbstractValidator<PasswordResetCommand>
     }
 }
 
-internal class PasswordResetCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<PasswordResetCommand, Result>
+public class PasswordResetCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<PasswordResetCommand, Result>
 {
     public async Task<Result> Handle(PasswordResetCommand request, CancellationToken cancellationToken)
     {

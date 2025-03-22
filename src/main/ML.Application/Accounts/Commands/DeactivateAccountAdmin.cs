@@ -17,7 +17,7 @@ public class DeactivateAccountAdminValidator : AbstractValidator<DeactivateAccou
     }
 }
 
-internal class DeactivateAccountAdminCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<DeactivateAccountAdminCommand, Result>
+public class DeactivateAccountAdminCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<DeactivateAccountAdminCommand, Result>
 {
     public async Task<Result> Handle(DeactivateAccountAdminCommand request, CancellationToken cancellationToken)
     {
