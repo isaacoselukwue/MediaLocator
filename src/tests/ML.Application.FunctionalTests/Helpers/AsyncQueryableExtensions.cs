@@ -46,7 +46,7 @@ public static class AsyncQueryableExtensions
 
             return (TResult)typeof(Task).GetMethod(nameof(Task.FromResult))!
                 .MakeGenericMethod(resultType)
-                .Invoke(null, new[] { executionResult })!;
+                .Invoke(null, [executionResult])!;
         }
     }
 
@@ -85,7 +85,7 @@ public static class AsyncQueryableExtensions
 
         public T Current => _inner.Current;
 
-        public ValueTask<bool> MoveNextAsync() => new ValueTask<bool>(_inner.MoveNext());
+        public ValueTask<bool> MoveNextAsync() => new(_inner.MoveNext());
 
         public ValueTask DisposeAsync()
         {

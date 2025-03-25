@@ -1,28 +1,28 @@
-﻿using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using ML.Infrastructure.Identity;
+﻿global using Microsoft.AspNetCore.Authentication;
+global using Microsoft.AspNetCore.Http;
+global using Microsoft.Extensions.Logging;
+global using Microsoft.Extensions.Options;
+global using ML.Infrastructure.Identity;
 
 namespace ML.Application.FunctionalTests.Accounts.Services;
 
 [TestFixture]
-class IdentityServiceTests
+abstract class IdentityServiceTests
 {
-    private Mock<UserManager<Users>> _mockUserManager;
-    private Mock<SignInManager<Users>> _mockSignInManager;
-    private Mock<IJwtService> _mockJwtService;
-    private Mock<IMLDbContext> _mockDbContext;
-    private IdentityService _identityService;
-    private Guid _validUserId;
-    private Guid _invalidUserId;
-    private Guid _alreadyActiveUserId;
-    private Guid _updateFailUserId;
-    private string _currentUserEmail;
-    private Users _validUser;
-    private Users _alreadyActiveUser;
-    private Users _updateFailUser;
+    protected Mock<UserManager<Users>> _mockUserManager;
+    protected Mock<SignInManager<Users>> _mockSignInManager;
+    protected Mock<IJwtService> _mockJwtService;
+    protected Mock<IMLDbContext> _mockDbContext;
+    protected IdentityService _identityService;
+    protected Guid _validUserId;
+    protected Guid _invalidUserId;
+    protected Guid _alreadyActiveUserId;
+    protected Guid _updateFailUserId;
+    protected string _currentUserEmail;
+    protected string _newPassword;
+    protected Users _validUser;
+    protected Users _alreadyActiveUser;
+    protected Users _updateFailUser;
 
     [SetUp]
     public void Setup()
@@ -32,17 +32,21 @@ class IdentityServiceTests
         _alreadyActiveUserId = Guid.NewGuid();
         _updateFailUserId = Guid.NewGuid();
         _currentUserEmail = "current@example.com";
+        _newPassword = "NewSecurePassword123!";
 
         _mockUserManager = MockUserManager();
         _mockSignInManager = MockSignInManager();
-        _mockJwtService = new Mock<IJwtService>();
-        _mockDbContext = new Mock<IMLDbContext>();
+        _mockJwtService = new();
+        _mockDbContext = new();
+        _mockDbContext.Setup(x => x.PasswordHistories.AddAsync(It.IsAny<PasswordHistories>(), It.IsAny<CancellationToken>()));
+        _mockDbContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         _validUser = new Users
         {
             Id = _validUserId,
             Email = "valid@example.com",
-            UsersStatus = StatusEnum.InActive
+            UsersStatus = StatusEnum.InActive,
+            PasswordHash = "OldPasswordHash"
         };
 
         _alreadyActiveUser = new Users
@@ -59,6 +63,7 @@ class IdentityServiceTests
             UsersStatus = StatusEnum.InActive
         };
 
+        _mockJwtService.Setup(x => x.GetUserId()).Returns(_validUserId);
         _mockJwtService.Setup(x => x.GetEmailAddress()).Returns(_currentUserEmail);
 
         _mockUserManager.Setup(x => x.FindByIdAsync(_validUserId.ToString()))
@@ -71,13 +76,26 @@ class IdentityServiceTests
             .ReturnsAsync(_updateFailUser);
 
         _mockUserManager.Setup(x => x.FindByIdAsync(_invalidUserId.ToString()))
-            .ReturnsAsync((Users)null);
+            .ReturnsAsync((Users?)null);
 
         _mockUserManager.Setup(x => x.UpdateAsync(_validUser))
             .ReturnsAsync(IdentityResult.Success);
 
         _mockUserManager.Setup(x => x.UpdateAsync(_updateFailUser))
             .ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "Update failed" }));
+
+        _mockUserManager.Setup(x => x.ChangePasswordAsync(_validUser, _validUser.PasswordHash, _newPassword))
+            .ReturnsAsync(IdentityResult.Success);
+
+        _mockUserManager.Setup(x => x.ChangePasswordAsync(
+           It.Is<Users>(u => u.Id == _validUserId && u.UsersStatus == StatusEnum.InActive),
+           It.IsAny<string>(), It.IsAny<string>()))
+           .ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "Account is not active" }));
+
+        _mockUserManager.Setup(x => x.ChangePasswordAsync(
+            It.Is<Users>(u => u.Id == _updateFailUserId),
+            It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "Password change failed" }));
 
         _identityService = new(_mockSignInManager.Object, _mockUserManager.Object, _mockJwtService.Object, _mockDbContext.Object);
     }
@@ -138,14 +156,78 @@ class IdentityServiceTests
         _mockUserManager.Verify(x => x.UpdateAsync(_validUser), Times.Once);
     }
 
+    [Test]
+    public async Task ChangePassword_UserNotFound_ReturnsFailed()
+    {
+        _mockJwtService.Setup(x => x.GetUserId()).Returns(_invalidUserId);
+
+        var result = await _identityService.ChangePasswordAsync(_newPassword);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Item1.Succeeded, Is.False);
+            Assert.That(result.Item1.Errors, Contains.Item("Invalid user"));
+            Assert.That(result.email, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task ChangePassword_InactiveUser_ReturnsFailed()
+    {
+        _validUser.UsersStatus = StatusEnum.InActive;
+
+        var result = await _identityService.ChangePasswordAsync(_newPassword);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Item1.Succeeded, Is.False);
+            Assert.That(result.Item1.Errors, Contains.Item("Account is not active"));
+            Assert.That(result.email, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task ChangePassword_ChangePasswordFails_ReturnsFailed()
+    {
+        _updateFailUser.UsersStatus = StatusEnum.Active;
+        _mockJwtService.Setup(x => x.GetUserId()).Returns(_updateFailUserId);
+
+        var result = await _identityService.ChangePasswordAsync(_newPassword);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Item1.Succeeded, Is.False);
+            Assert.That(result.Item1.Errors, Contains.Item("Password change failed"));
+            Assert.That(result.email, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task ChangePassword_Success_ReturnsSuccessWithEmail()
+    {
+        _validUser.UsersStatus = StatusEnum.Active;
+        var result = await _identityService.ChangePasswordAsync(_newPassword);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Item1.Succeeded, Is.True);
+            Assert.That(result.Item1.Message, Is.EqualTo(ResultMessage.ChangePasswordSuccess));
+            Assert.That(result.email, Is.EqualTo(_validUser.Email));
+        });
+
+        _mockUserManager.Verify(x => x.ChangePasswordAsync(_validUser, _validUser.PasswordHash ?? "", _newPassword), Times.Once);
+        _mockSignInManager.Verify(x => x.RefreshSignInAsync(_validUser), Times.Once);
+        _mockDbContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static Mock<UserManager<Users>> MockUserManager()
     {
         return new Mock<UserManager<Users>>(
             new Mock<IUserStore<Users>>().Object,
             new Mock<IOptions<IdentityOptions>>().Object,
             new Mock<IPasswordHasher<Users>>().Object,
-            new IUserValidator<Users>[0],
-            new IPasswordValidator<Users>[0],
+            Array.Empty<IUserValidator<Users>>(),
+            Array.Empty<IPasswordValidator<Users>>(),
             new Mock<ILookupNormalizer>().Object,
             new Mock<IdentityErrorDescriber>().Object,
             new Mock<IServiceProvider>().Object,
@@ -159,8 +241,8 @@ class IdentityServiceTests
                 new Mock<IUserStore<Users>>().Object,
                 new Mock<IOptions<IdentityOptions>>().Object,
                 new Mock<IPasswordHasher<Users>>().Object,
-                new IUserValidator<Users>[0],
-                new IPasswordValidator<Users>[0],
+                Array.Empty<IUserValidator<Users>>(),
+                Array.Empty<IPasswordValidator<Users>>(),
                 new Mock<ILookupNormalizer>().Object,
                 new Mock<IdentityErrorDescriber>().Object,
                 new Mock<IServiceProvider>().Object,
