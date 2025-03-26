@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: src/main/ML.Api/Dockerfile
+    ports:
+      - "7092:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=${POSTGRES_CONNECTION_STRING}
+      - ConnectionStrings__RedisConnection=${REDIS_CONNECTION_STRING}
+      - JwtSettings__Secret=${JWT_SECRET}
+      - RabbitMqSettings__Host=${RABBITMQ_HOST}
+      - RabbitMqSettings__UserName=${RABBITMQ_USER}
+      - RabbitMqSettings__Password=${RABBITMQ_PASSWORD}
+      - OpenTelemetry__OtlpEndpoint=http://otel-collector:4317
+    depends_on:
+      - postgres
+      - rabbitmq
+    restart: unless-stopped
+    networks:
+      - medialocator-network
+
+  worker:
+    build:
+      context: ..
+      dockerfile: src/main/ML.Service/Dockerfile
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=medialocator;Username=postgres;Password=postgres_password
+      - MailSettings__UserName=${MAIL_USERNAME}
+      - MailSettings__Password=${MAIL_PASSWORD}
+      - MailSettings__BaseUrl=http://web
+      - RabbitMqSettings__Host=${RABBITMQ_HOST}
+      - RabbitMqSettings__UserName=${RABBITMQ_USER}
+      - RabbitMqSettings__Password=${RABBITMQ_PASSWORD}
+      - OpenTelemetry__OtlpEndpoint=http://otel-collector:4317
+      - OpenTelemetry__ServiceName=MediaLocator.Worker
+    depends_on:
+      - postgres
+      - rabbitmq
+    restart: unless-stopped
+    networks:
+      - medialocator-network
+
+  # Web Frontend
+  web:
+    build:
+      context: ..
+      dockerfile: src/main/ML.Web/Dockerfile
+    ports:
+      - "7275:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - medialocator-network
+
+  # PostgreSQL
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - medialocator-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - medialocator-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"  
+    restart: unless-stopped
+    networks:
+      - medialocator-network
+
+networks:
+  medialocator-network:
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
