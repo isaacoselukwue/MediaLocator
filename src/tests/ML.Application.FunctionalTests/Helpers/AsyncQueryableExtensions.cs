@@ -74,14 +74,9 @@ public static class AsyncQueryableExtensions
         IQueryProvider IQueryable.Provider => _provider;
     }
 
-    private class TestAsyncEnumerator<T> : IAsyncEnumerator<T>
+    private class TestAsyncEnumerator<T>(IEnumerator<T> inner) : IAsyncEnumerator<T>
     {
-        private readonly IEnumerator<T> _inner;
-
-        public TestAsyncEnumerator(IEnumerator<T> inner)
-        {
-            _inner = inner;
-        }
+        private readonly IEnumerator<T> _inner = inner;
 
         public T Current => _inner.Current;
 

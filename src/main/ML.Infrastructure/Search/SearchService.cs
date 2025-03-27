@@ -485,7 +485,7 @@ public class SearchService(HybridCache hybridCache, IMLDbContext mlDbContext, IJ
         })];
         return adminSearchHistoryResults;
     }
-    private DailyMediaDto MapDailyMedia(AudioSearchResponse audioResult, ImageSearchResponse imageResult, string wordOfTheDay)
+    private static DailyMediaDto MapDailyMedia(AudioSearchResponse audioResult, ImageSearchResponse imageResult, string wordOfTheDay)
     {
         return new DailyMediaDto
         {

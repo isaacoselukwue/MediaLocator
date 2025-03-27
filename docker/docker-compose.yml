@@ -1,5 +1,4 @@
-version: '3.8'
-
+name: medialocator
 services:
   api:
     build:
@@ -9,19 +8,32 @@ services:
       - "7092:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://0.0.0.0:8080
       - ConnectionStrings__DefaultConnection=${POSTGRES_CONNECTION_STRING}
       - ConnectionStrings__RedisConnection=${REDIS_CONNECTION_STRING}
       - JwtSettings__Secret=${JWT_SECRET}
       - RabbitMqSettings__Host=${RABBITMQ_HOST}
       - RabbitMqSettings__UserName=${RABBITMQ_USER}
       - RabbitMqSettings__Password=${RABBITMQ_PASSWORD}
-      - OpenTelemetry__OtlpEndpoint=http://otel-collector:4317
+      - OpenTelemetry__OtlpEndpoint=http://jaeger:4317
+      - OpenTelemetry__HealthUrl=http://jaeger:16686
+      - OpenVerseSettings__ClientId=${OPENVERSE_CLIENT_ID}
+      - OpenVerseSettings__ClientSecret=${OPENVERSE_CLIENT_SECRET}
+      - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+      - OpenApi__ServerUrl=http://localhost:7092
     depends_on:
       - postgres
       - rabbitmq
+      - jaeger
     restart: unless-stopped
     networks:
       - medialocator-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   worker:
     build:
@@ -29,27 +41,29 @@ services:
       dockerfile: src/main/ML.Service/Dockerfile
     environment:
       - DOTNET_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Host=postgres;Database=medialocator;Username=postgres;Password=postgres_password
+      - ConnectionStrings__DefaultConnection=${POSTGRES_CONNECTION_STRING}
       - MailSettings__UserName=${MAIL_USERNAME}
       - MailSettings__Password=${MAIL_PASSWORD}
-      - MailSettings__BaseUrl=http://web
+      - MailSettings__BaseUrl=http://localhost:7275
       - RabbitMqSettings__Host=${RABBITMQ_HOST}
       - RabbitMqSettings__UserName=${RABBITMQ_USER}
       - RabbitMqSettings__Password=${RABBITMQ_PASSWORD}
-      - OpenTelemetry__OtlpEndpoint=http://otel-collector:4317
+      - OpenTelemetry__OtlpEndpoint=http://jaeger:4317
       - OpenTelemetry__ServiceName=MediaLocator.Worker
     depends_on:
       - postgres
       - rabbitmq
+      - jaeger
     restart: unless-stopped
     networks:
       - medialocator-network
 
-  # Web Frontend
   web:
     build:
       context: ..
       dockerfile: src/main/ML.Web/Dockerfile
+      args:
+        - API_BASE_URL=http://localhost:7092/
     ports:
       - "7275:80"
     volumes:
@@ -60,9 +74,8 @@ services:
     networks:
       - medialocator-network
 
-  # PostgreSQL
   postgres:
-    image: postgres:16
+    image: postgres:latest
     ports:
       - "5432:5432"
     environment:
@@ -99,14 +112,34 @@ services:
     networks:
       - medialocator-network
 
-  otel-collector:
-    image: otel/opentelemetry-collector:latest
-    command: ["--config=/etc/otel-collector-config.yaml"]
-    volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+  jaeger:
+    image: jaegertracing/all-in-one:latest
     ports:
-      - "4317:4317"  
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "14268:14268"
+      - "14250:14250"
+      - "4317:4317"
+      - "4318:4318"
+      - "16686:16686"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
     restart: unless-stopped
+    networks:
+      - medialocator-network
+  healthchecks-ui:
+    image: xabarilcoding/healthchecksui:latest
+    container_name: medialocator-healthchecks
+    ports:
+      - "8000:80"
+    environment:
+      - HealthChecksUI__HealthChecks__0__Name=ML.API
+      - HealthChecksUI__HealthChecks__0__Uri=http://api:8080/health
+      - Logging__LogLevel__Default=Information
+    depends_on:
+      - api
     networks:
       - medialocator-network
 
