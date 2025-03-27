@@ -20,8 +20,6 @@ using Npgsql;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using Polly.Retry;
-using System.Diagnostics;
 
 namespace ML.Infrastructure;
 
@@ -189,6 +187,7 @@ public static class DependencyInjection
                 cfg.ConfigureEndpoints(context);
                 cfg.UseInstrumentation();
             });
+            config.AddHealthChecks();
         });
         builder.Services.AddScoped<IPublisher, MassTransitEventPublisher>();
     }

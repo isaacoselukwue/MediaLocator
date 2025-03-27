@@ -3,13 +3,10 @@ using System.Security.Claims;
 
 namespace ML.Api.Services;
 
-public class CurrentUser : ICurrentUser
+public class CurrentUser(IHttpContextAccessor httpContextAccessor) : ICurrentUser
 {
-    private readonly IHttpContextAccessor _httpContextAccessor;
-    public CurrentUser(IHttpContextAccessor httpContextAccessor)
-    {
-        _httpContextAccessor = httpContextAccessor;
-    }
+    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
+
     public Guid UserId => Guid.Parse(_httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier) ?? Guid.Empty.ToString());
     public string Email => _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
     public string UserName => _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.Name) ?? string.Empty;

@@ -2,7 +2,7 @@
 
 public class AudioSearchDto
 {
-    public List<AudioSearchResult> Results { get; set; } = new();
+    public List<AudioSearchResult> Results { get; set; } = [];
     public int TotalResults { get; set; }
     public int TotalPages { get; set; }
     public int Page { get; set; }
@@ -11,7 +11,7 @@ public class AudioSearchDto
 
 public class ImageSearchDto
 {
-    public List<ImageSearchResult> Results { get; set; } = new();
+    public List<ImageSearchResult> Results { get; set; } = [];
     public int TotalResults { get; set; }
     public int TotalPages { get; set; }
     public int Page { get; set; }

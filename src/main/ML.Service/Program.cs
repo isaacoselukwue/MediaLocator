@@ -31,6 +31,7 @@ builder.Services.AddMassTransit(config =>
         cfg.ConfigureEndpoints(context);
         cfg.UseInstrumentation();
     });
+    config.AddHealthChecks();
 });
 
 builder.Services.AddScoped<NotificationConsumer>();
