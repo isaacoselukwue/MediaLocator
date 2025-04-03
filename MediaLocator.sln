@@ -38,6 +38,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		docker\docker-compose.yml = docker\docker-compose.yml
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ML.AcceptanceTests", "MLAcceptanceTests\ML.AcceptanceTests.csproj", "{10BC2E2B-7329-400C-B219-96D45D010CA5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -76,6 +78,10 @@ Global
 		{77F073BB-C745-E00D-1110-71C0455EF785}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{77F073BB-C745-E00D-1110-71C0455EF785}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{77F073BB-C745-E00D-1110-71C0455EF785}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10BC2E2B-7329-400C-B219-96D45D010CA5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10BC2E2B-7329-400C-B219-96D45D010CA5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10BC2E2B-7329-400C-B219-96D45D010CA5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10BC2E2B-7329-400C-B219-96D45D010CA5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -91,6 +97,7 @@ Global
 		{4D0ECC4C-7D26-297C-6222-E9323EC0DE75} = {AB2711AA-7474-4AB4-8503-65489ACF033D}
 		{41760E84-6E0A-F0B4-D2E8-F169C475740F} = {A668596B-8363-406E-90C3-FDA82C684D21}
 		{77F073BB-C745-E00D-1110-71C0455EF785} = {AB2711AA-7474-4AB4-8503-65489ACF033D}
+		{10BC2E2B-7329-400C-B219-96D45D010CA5} = {A668596B-8363-406E-90C3-FDA82C684D21}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {23EF6A0D-6A29-45FB-8654-93611CBCD168}

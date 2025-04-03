@@ -20,7 +20,7 @@ public class AddSearchHistoryValidator : AbstractValidator<AddSearchHistoryComma
     }
 }
 
-internal class AddSearchHistoryCommandValidator(ISearchService searchService) : IRequestHandler<AddSearchHistoryCommand, Result>
+public class AddSearchHistoryCommandValidator(ISearchService searchService) : IRequestHandler<AddSearchHistoryCommand, Result>
 {
     public async Task<Result> Handle(AddSearchHistoryCommand request, CancellationToken cancellationToken)
     {

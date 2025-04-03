@@ -14,7 +14,7 @@ public record SignupCommand : IRequest<Result>
     public string? PhoneNumber { get; set; }
 }
 
-internal class SignupCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<SignupCommand, Result>
+public class SignupCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<SignupCommand, Result>
 {
     public async Task<Result> Handle(SignupCommand request, CancellationToken cancellationToken)
     {

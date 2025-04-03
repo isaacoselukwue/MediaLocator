@@ -17,7 +17,7 @@ public class ImageDetailsValidator : AbstractValidator<ImageDetailsQuery>
     }
 }
 
-internal class ImageDetailsHandler(ISearchService searchService) : IRequestHandler<ImageDetailsQuery, Result<ImageSearchResult>>
+public class ImageDetailsHandler(ISearchService searchService) : IRequestHandler<ImageDetailsQuery, Result<ImageSearchResult>>
 {
     public async Task<Result<ImageSearchResult>> Handle(ImageDetailsQuery request, CancellationToken cancellationToken)
     {

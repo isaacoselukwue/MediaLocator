@@ -5,7 +5,7 @@ using ML.Domain.Enums;
 
 namespace ML.Application.Media.Queries;
 
-public record AudioSearchQuery : IRequest<Result>
+public record AudioSearchQuery : IRequest<Result<AudioSearchDto>>
 {
     public string? SearchQuery { get; set; }
     public OpenLicenseEnum? License { get; set; }
@@ -26,9 +26,9 @@ public class AudioSearchValidator : AbstractValidator<AudioSearchQuery>
     }
 }
 
-internal class AudioSearchQueryHandler(ISearchService searchService) : IRequestHandler<AudioSearchQuery, Result>
+public class AudioSearchQueryHandler(ISearchService searchService) : IRequestHandler<AudioSearchQuery, Result<AudioSearchDto>>
 {
-    public async Task<Result> Handle(AudioSearchQuery request, CancellationToken cancellationToken)
+    public async Task<Result<AudioSearchDto>> Handle(AudioSearchQuery request, CancellationToken cancellationToken)
     {
         var result = await searchService.SearchAudio(request.SearchQuery!, request.License, request.LicenseType, request.Category, request.PageNumber, cancellationToken);
         return result;

@@ -3,6 +3,7 @@ global using Microsoft.AspNetCore.Http;
 global using Microsoft.Extensions.Logging;
 global using Microsoft.Extensions.Options;
 global using ML.Infrastructure.Identity;
+using System.Text.Json;
 
 namespace ML.Application.FunctionalTests.Accounts.Services;
 
@@ -142,8 +143,9 @@ abstract class IdentityServiceTests
     [Test]
     public async Task ActivateAccount_Success_ReturnsSuccessWithEmail()
     {
+        _validUser.UsersStatus = StatusEnum.Pending;
         var result = await _identityService.ActivateAccountAsync(_validUserId);
-
+        
         Assert.Multiple(() =>
         {
             Assert.That(result.Item1.Succeeded, Is.True);

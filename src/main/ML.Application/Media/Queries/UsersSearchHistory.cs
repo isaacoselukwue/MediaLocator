@@ -24,7 +24,7 @@ public class UsersSearchHistoryValidator : AbstractValidator<UsersSearchHistoryQ
     }
 }
 
-internal class UsersSearchHistoryQueryHandler(ISearchService _searchService) : IRequestHandler<UsersSearchHistoryQuery, Result<UsersSearchHistoryDto>>
+public class UsersSearchHistoryQueryHandler(ISearchService _searchService) : IRequestHandler<UsersSearchHistoryQuery, Result<UsersSearchHistoryDto>>
 {
     public async Task<Result<UsersSearchHistoryDto>> Handle(UsersSearchHistoryQuery request, CancellationToken cancellationToken)
     {
