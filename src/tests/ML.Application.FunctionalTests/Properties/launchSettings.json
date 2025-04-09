@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "ML.Application.FunctionalTests": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}

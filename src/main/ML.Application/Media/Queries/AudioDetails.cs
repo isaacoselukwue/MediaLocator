@@ -15,7 +15,7 @@ public class AudioDetailsValidator : AbstractValidator<AudioDetailsQuery>
         RuleFor(x => x.Id).NotEmpty().WithMessage("Id is required.");
     }
 }
-internal class AudioDetailsQueryHandler(ISearchService searchService) : IRequestHandler<AudioDetailsQuery, Result<AudioSearchResult>>
+public class AudioDetailsQueryHandler(ISearchService searchService) : IRequestHandler<AudioDetailsQuery, Result<AudioSearchResult>>
 {
     public async Task<Result<AudioSearchResult>> Handle(AudioDetailsQuery request, CancellationToken cancellationToken)
     {

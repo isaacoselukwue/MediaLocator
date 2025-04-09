@@ -11,7 +11,7 @@ public record LoginCommand : IRequest<Result<LoginDto>>
     public string? Password { get; set; }
 }
 
-internal class LoginCommandHandler (IIdentityService identityService, IPublisher publisher)
+public class LoginCommandHandler (IIdentityService identityService, IPublisher publisher)
     : IRequestHandler<LoginCommand, Result<LoginDto>>
 {
     public async Task<Result<LoginDto>> Handle(LoginCommand request, CancellationToken cancellationToken)

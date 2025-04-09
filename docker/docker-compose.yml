@@ -74,6 +74,26 @@ services:
     networks:
       - medialocator-network
 
+  functional-tests:
+      build:
+        context: ..
+        dockerfile: src/tests/ML.Application.FunctionalTests/Dockerfile
+      environment:
+        - DOTNET_ENVIRONMENT=Development
+        - ConnectionStrings__DefaultConnection=${POSTGRES_CONNECTION_STRING}
+        - JwtSettings__Secret=${JWT_SECRET}
+        - OpenVerseSettings__ClientId=${OPENVERSE_CLIENT_ID}
+        - OpenVerseSettings__ClientSecret=${OPENVERSE_CLIENT_SECRET}
+      volumes:
+        - ../testresults:/testresults
+      depends_on:
+        postgres:
+          condition: service_healthy
+      networks:
+        - medialocator-network
+      restart: "no"
+      # command: ["--filter", "Category=Unit", "--verbosity", "normal"]
+
   postgres:
     image: postgres:latest
     ports:
@@ -142,6 +162,25 @@ services:
       - api
     networks:
       - medialocator-network
+
+  acceptance-tests:
+    build:
+      context: ..
+      dockerfile: src/tests/ML.AcceptanceTests/Dockerfile
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      - TEST_WEB_URL=http://web:80
+      - TEST_API_URL=http://api:8080
+    volumes:
+      - ../acceptance-testresults:/testresults
+    depends_on:
+      web:
+        condition: service_started
+      api:
+        condition: service_healthy
+    networks:
+      - medialocator-network
+    restart: "no"
 
 networks:
   medialocator-network:

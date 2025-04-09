@@ -27,7 +27,7 @@ public class AdminSearchHistoryValidator : AbstractValidator<AdminSearchHistoryQ
     }
 }
 
-internal class AdminSearchHistoryQueryHandler(ISearchService searchService) : IRequestHandler<AdminSearchHistoryQuery, Result<AdminSearchHistoryDto>>
+public class AdminSearchHistoryQueryHandler(ISearchService searchService) : IRequestHandler<AdminSearchHistoryQuery, Result<AdminSearchHistoryDto>>
 {
     public async Task<Result<AdminSearchHistoryDto>> Handle(AdminSearchHistoryQuery request, CancellationToken cancellationToken)
     {

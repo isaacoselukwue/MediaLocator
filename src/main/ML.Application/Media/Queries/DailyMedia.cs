@@ -8,7 +8,7 @@ public record DailyMediaQuery : IRequest<Result<DailyMediaDto>>
 {
 }
 
-internal class DailyMediaQueryHandler(ISearchService searchService) : IRequestHandler<DailyMediaQuery, Result<DailyMediaDto>>
+public class DailyMediaQueryHandler(ISearchService searchService) : IRequestHandler<DailyMediaQuery, Result<DailyMediaDto>>
 {
     public async Task<Result<DailyMediaDto>> Handle(DailyMediaQuery request, CancellationToken cancellationToken)
     {

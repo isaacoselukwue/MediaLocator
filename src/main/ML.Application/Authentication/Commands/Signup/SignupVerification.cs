@@ -10,7 +10,7 @@ public record SignupVerificationCommand : IRequest<Result>
     public string? ActivationToken { get; set; }
 }
 
-internal class SignupVerificationCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<SignupVerificationCommand, Result>
+public class SignupVerificationCommandHandler(IIdentityService identityService, IPublisher publisher) : IRequestHandler<SignupVerificationCommand, Result>
 {
     public async Task<Result> Handle(SignupVerificationCommand request, CancellationToken cancellationToken)
     {
