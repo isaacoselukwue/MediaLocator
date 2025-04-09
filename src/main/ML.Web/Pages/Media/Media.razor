@@ -580,11 +580,10 @@
                         }
                     </div>
 
-                    <!-- Bottom: action buttons -->
                     <div class="image-viewer-actions">
                         @if (!isViewingFromHistory)
                         {
-                            <button class="action-button save-button" @onclick="() => SaveToHistory(null, currentImage.Id, SearchTypeEnum.Image)">
+                            <button class="action-button save-button" @onclick="() => SaveToHistory(null, currentImage?.Id ?? string.Empty, SearchTypeEnum.Image)">
                                 <i class="bi bi-bookmark-plus"></i> Save to History
                             </button>
                         }
