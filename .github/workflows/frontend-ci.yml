@@ -1,0 +1,56 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [ '**' ]
+    paths:
+      - 'src/main/ML.Web/**'
+      - 'src/tests/ML.Web.AcceptanceTests/**'
+  pull_request:
+    branches: [ '**' ]
+    paths:
+      - 'src/main/ML.Web/**'
+      - 'src/tests/ML.Web.AcceptanceTests/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 9.0.x
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build src/main/ML.Web/ML.Web.csproj --no-restore --configuration Release
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Install Playwright browsers
+      run: npx playwright install --with-deps
+    
+    - name: Run Acceptance Tests
+      run: dotnet test src/tests/ML.Web.AcceptanceTests/ML.Web.AcceptanceTests.csproj --no-build --configuration Release
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: frontend-test-results
+        path: TestResults/
+    
+    - name: Upload Playwright report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: playwright-report
+        path: playwright-report/

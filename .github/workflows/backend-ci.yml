@@ -1,0 +1,69 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ '**' ]
+    paths:
+      - 'src/main/ML.Api/**'
+      - 'src/main/ML.Application/**'
+      - 'src/main/ML.Infrastructure/**'
+      - 'src/main/ML.Domain/**'
+      - 'src/main/ML.Service/**'
+      - 'src/tests/**'
+      - '*.sln'
+  pull_request:
+    branches: [ '**' ]
+    paths:
+      - 'src/main/ML.Api/**'
+      - 'src/main/ML.Application/**'
+      - 'src/main/ML.Infrastructure/**'
+      - 'src/main/ML.Domain/**'
+      - 'src/main/ML.Service/**'
+      - 'src/tests/**'
+      - '*.sln'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 9.0.x
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+    
+    - name: Run Application.FunctionalTests
+      run: dotnet test src/tests/ML.Application.FunctionalTests/ML.Application.FunctionalTests.csproj --no-build --configuration Release --verbosity normal
+      env:
+        ConnectionStrings__DefaultConnection: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+        JwtSettings__Secret: ${{ secrets.JWT_SECRET }}
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: backend-test-results
+        path: TestResults/
