@@ -645,7 +645,7 @@
         var uri = NavManager.ToAbsoluteUri(NavManager.Uri);
         if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("q", out var queryValue))
         {
-            searchQuery = queryValue.First();
+            searchQuery = queryValue.First() ?? string.Empty;
             await PerformSearch();
         }
         else if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("tab", out var tabValue))

@@ -30,18 +30,34 @@ jobs:
     - name: Build Web Project
       run: dotnet build src/main/ML.Web/ML.Web.csproj --configuration Release
     
+    - name: Publish Web Project
+      run: dotnet publish src/main/ML.Web/ML.Web.csproj --configuration Release --output ./publish
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+      
+    - name: Install and start http-server
+      run: |
+        npm install -g http-server
+        cd publish/wwwroot
+        http-server -p 7275 &
+        echo "Web server started on port 7275"
+        # Wait for server to start
+        sleep 5
+    
     - name: Build Test Project
       run: dotnet build src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release
     
-    - name: Install Playwright browsers for .NET
+    - name: Install Playwright browsers
       run: |
         dotnet tool install --global Microsoft.Playwright.CLI
         cd src/tests/ML.AcceptanceTests
-        playwright install
-        playwright install-deps
+        playwright install --with-deps chromium
     
     - name: Run Acceptance Tests
-      run: dotnet test src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release
+      run: dotnet test src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release --no-build
     
     - name: Upload test results
       uses: actions/upload-artifact@v4
