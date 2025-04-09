@@ -38,8 +38,12 @@ jobs:
       with:
         node-version: '18'
     
-    - name: Install Playwright browsers
-      run: npx playwright install --with-deps
+    - name: Install Playwright browsers for .NET
+      run: |
+        dotnet tool install --global Microsoft.Playwright.CLI
+        cd src/tests/ML.AcceptanceTests
+        playwright install
+        playwright install-deps
     
     - name: Run Acceptance Tests
       run: dotnet test src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release

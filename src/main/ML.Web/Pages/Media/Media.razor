@@ -587,7 +587,7 @@
                                 <i class="bi bi-bookmark-plus"></i> Save to History
                             </button>
                         }
-                        <button class="action-button download-button" @onclick="() => DownloadMedia(null, currentImage?.Url ?? string.Empty, currentImage?.Title ?? string.Empty, currentImage.FileType ?? GetImageFileType(currentImage.Url))">
+                        <button class="action-button download-button" @onclick="() => DownloadMedia(null, currentImage?.Url ?? string.Empty, currentImage?.Title ?? string.Empty, currentImage?.FileType ?? GetImageFileType(currentImage.Url))">
                             <i class="bi bi-download"></i> Download
                         </button>
                     </div>
