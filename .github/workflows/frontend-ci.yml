@@ -38,14 +38,37 @@ jobs:
       with:
         node-version: '18'
       
+    - name: Create rewrite rule for SPA routing
+      run: |
+        cat > publish/wwwroot/404.html <<EOL
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta http-equiv="refresh" content="0;URL='/'" />
+          </head>
+          <body></body>
+        </html>
+        EOL
+    
     - name: Install and start http-server
       run: |
         npm install -g http-server
         cd publish/wwwroot
-        http-server -p 7275 &
+        http-server -p 7275 --proxy http://localhost:7275? &
         echo "Web server started on port 7275"
         # Wait for server to start
-        sleep 5
+        sleep 10
+        
+        # Verify server is responding
+        curl -I http://localhost:7275/
+        
+    - name: Update test configuration
+      run: |
+        cat > src/tests/ML.AcceptanceTests/appsettings.json <<EOL
+        {
+          "BaseUrl": "http://localhost:7275"
+        }
+        EOL
     
     - name: Build Test Project
       run: dotnet build src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release
@@ -58,6 +81,8 @@ jobs:
     
     - name: Run Acceptance Tests
       run: dotnet test src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release --no-build
+      env:
+        DEBUG: pw:api
     
     - name: Upload test results
       uses: actions/upload-artifact@v4

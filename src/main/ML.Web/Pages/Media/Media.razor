@@ -650,7 +650,7 @@
         }
         else if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("tab", out var tabValue))
         {
-            activeTab = tabValue.First();
+            activeTab = tabValue.First() ?? string.Empty;
             if (activeTab == "history")
             {
                 await FetchSearchHistory();
