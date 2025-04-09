@@ -42,7 +42,7 @@ jobs:
       run: dotnet test src/tests/ML.Web.AcceptanceTests/ML.Web.AcceptanceTests.csproj --no-build --configuration Release
     
     - name: Upload test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: frontend-test-results
