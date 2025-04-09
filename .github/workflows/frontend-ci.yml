@@ -5,12 +5,12 @@ on:
     branches: [ '**' ]
     paths:
       - 'src/main/ML.Web/**'
-      - 'src/tests/ML.Web.AcceptanceTests/**'
+      - 'src/tests/ML.AcceptanceTests/**'
   pull_request:
     branches: [ '**' ]
     paths:
       - 'src/main/ML.Web/**'
-      - 'src/tests/ML.Web.AcceptanceTests/**'
+      - 'src/tests/ML.AcceptanceTests/**'
 
 jobs:
   build-and-test:
@@ -27,8 +27,11 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     
-    - name: Build
-      run: dotnet build src/main/ML.Web/ML.Web.csproj --no-restore --configuration Release
+    - name: Build Web Project
+      run: dotnet build src/main/ML.Web/ML.Web.csproj --configuration Release
+    
+    - name: Build Test Project
+      run: dotnet build src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release
     
     - name: Setup Node.js
       uses: actions/setup-node@v3
@@ -39,7 +42,7 @@ jobs:
       run: npx playwright install --with-deps
     
     - name: Run Acceptance Tests
-      run: dotnet test src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --no-build --configuration Release
+      run: dotnet test src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release
     
     - name: Upload test results
       uses: actions/upload-artifact@v4
