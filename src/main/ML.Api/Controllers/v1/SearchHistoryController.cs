@@ -25,7 +25,6 @@ public class SearchHistoryController(IPublisher publisher, UserManager<Users> us
     {
         Users user = await userManager.FindByEmailAsync("princeizak@live.com") ?? new();
         //await userManager.
-        Console.WriteLine("Here");
         await Task.CompletedTask;
         return Ok();
     }
