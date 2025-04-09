@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "ML.AcceptanceTests": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}

@@ -126,7 +126,7 @@ public class SignupTests : PageTest
             {
                 Status = 400,
                 ContentType = "application/json",
-                Body = """{"succeeded":false,"message":"Registration failed","errors":["Email address is already in use"]}"""
+                Body = """{"succeeded":false,"message":"Sign up failed. Please review errors and try again.","errors":["Email address is already in use"]}"""
             });
         });
 
@@ -140,8 +140,8 @@ public class SignupTests : PageTest
         );
 
         await Expect(_signupPage.Page.Locator(".error-title")).ToBeVisibleAsync();
-        await Expect(_signupPage.Page.Locator(".error-title")).ToContainTextAsync("Registration failed");
-        await Expect(_signupPage.Page.Locator(".error-details li")).ToContainTextAsync("Email address is already in use");
+        await Expect(_signupPage.Page.Locator(".error-title")).ToContainTextAsync("Sign up failed. Please review errors and try again.");
+        await Expect(_signupPage.Page.Locator(".error-details li")).ToContainTextAsync("Email 'existing@example.com' is already taken");
     }
 
     [Test]
