@@ -33,23 +33,15 @@ jobs:
     - name: Build Test Project
       run: dotnet build src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release
     
-    - name: Install Playwright dependencies
-      run: |
-        # Install system dependencies for Playwright
-        sudo apt-get update
-        sudo apt-get install -y libglib2.0-0 libnss3 libnspr4 libatk1.0-0 \
-          libatk-bridge2.0-0 libcups2 libdrm2 libdbus-1-3 libxkbcommon0 \
-          libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 \
-          libcairo2 libasound2 libatspi2.0-0 libx11-6 libxcb1 libx11-xcb1 \
-          fonts-liberation fonts-noto-color-emoji xvfb
-    
     - name: Install Playwright browsers for .NET
       run: |
         dotnet tool install --global Microsoft.Playwright.CLI
-        playwright install --with-deps chromium
+        cd src/tests/ML.AcceptanceTests
+        playwright install
+        playwright install-deps
     
     - name: Run Acceptance Tests
-      run: xvfb-run dotnet test src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release
+      run: dotnet test src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release
     
     - name: Upload test results
       uses: actions/upload-artifact@v4
