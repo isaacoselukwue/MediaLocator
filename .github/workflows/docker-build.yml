@@ -76,18 +76,18 @@ jobs:
         MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
         EOF
         
-        docker-compose -f docker/docker-compose.yml build
+        docker compose -f docker/docker-compose.yml build
         
-        docker-compose -f docker/docker-compose.yml up -d postgres rabbitmq jaeger
+        docker compose -f docker/docker-compose.yml up -d postgres rabbitmq jaeger
         
         sleep 20
         
-        docker-compose -f docker/docker-compose.yml up -d worker
+        docker compose -f docker/docker-compose.yml up -d worker
         
-        docker-compose -f docker/docker-compose.yml up --exit-code-from functional-tests functional-tests
+        docker compose -f docker/docker-compose.yml up --exit-code-from functional-tests functional-tests
         
         TEST_EXIT_CODE=$?
         
-        docker-compose -f docker/docker-compose.yml down
+        docker compose -f docker/docker-compose.yml down
         
         exit $TEST_EXIT_CODE
