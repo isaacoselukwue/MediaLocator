@@ -59,7 +59,7 @@ public class MediaController(ISender sender) : BaseController
     [ProducesResponseType(typeof(Result), 400)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
-    public async Task<ActionResult<Result<ImageSearchDto>>> SearchVideo([FromQuery] ImageSearchQuery query)
+    public async Task<ActionResult<Result<ImageSearchDto>>> SearchImage([FromQuery] ImageSearchQuery query)
     {
         var result = await sender.Send(query);
         return Ok(result);
