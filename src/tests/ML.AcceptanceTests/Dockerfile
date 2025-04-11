@@ -7,6 +7,10 @@ COPY ["src/main/ML.Web/ML.Web.csproj", "src/main/ML.Web/"]
 
 RUN dotnet restore "./src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj"
 
+COPY . .
+
+RUN dotnet build "src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj" -c Release
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         wget \
@@ -33,16 +37,17 @@ RUN apt-get update && \
         libatspi2.0-0 \
         libx11-6 \
         xvfb \
+        fonts-liberation \
+        fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
-
-COPY . .
 
 RUN dotnet tool install --global Microsoft.Playwright.CLI
 ENV PATH="$PATH:/root/.dotnet/tools"
-RUN playwright install --with-deps chromium
+
+RUN /root/.dotnet/tools/playwright install --with-deps chromium
 
 WORKDIR "/src/src/tests/ML.AcceptanceTests"
 
-ENTRYPOINT ["dotnet", "test", "--no-restore", "--logger:trx", "--results-directory:/testresults"]
+ENTRYPOINT ["xvfb-run", "--auto-servernum", "--server-args=-screen 0 1280x720x24", "dotnet", "test", "--no-restore", "--logger:trx", "--results-directory:/testresults"]
 
 VOLUME ["/testresults"]
