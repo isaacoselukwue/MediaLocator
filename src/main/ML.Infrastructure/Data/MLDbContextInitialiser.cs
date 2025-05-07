@@ -73,12 +73,12 @@ public class MLDbContextInitialiser(ILogger<MLDbContextInitialiser> logger, MLDb
 
         Users administrator = new()
         {
-            Created = DateTimeOffset.Now,
+            Created = DateTimeOffset.UtcNow,
             CreatedBy = "System",
             Email = "princeizak@live.com",
             EmailConfirmed = true,
             FirstName = "Isaac",
-            LastModified = DateTimeOffset.Now,
+            LastModified = DateTimeOffset.UtcNow,
             LastName = "Ose",
             PhoneNumber = "07000000000",
             PhoneNumberConfirmed = true,
