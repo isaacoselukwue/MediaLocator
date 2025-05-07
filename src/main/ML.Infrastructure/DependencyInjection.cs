@@ -178,7 +178,7 @@ public static class DependencyInjection
             {
                 RabbitMqSettings queueSettings = builder.Configuration.GetSection("RabbitMqSettings").Get<RabbitMqSettings>()!;
 
-                cfg.Host(queueSettings.Host, "/", h =>
+                cfg.Host(queueSettings.Host, queueSettings.VHost, h =>
                 {
                     h.Username(queueSettings.Username!);
                     h.Password(queueSettings.Password!);
