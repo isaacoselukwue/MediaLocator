@@ -1,10 +1,11 @@
 using MassTransit;
+using Microsoft.AspNetCore.Builder;
 using ML.Infrastructure;
 using ML.Infrastructure.Email;
 using ML.Service;
 using ML.Service.Consumers;
 
-var builder = Host.CreateApplicationBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHostedService<Worker>();
 
 builder.AddInfrastructureWorkerServices();
@@ -37,4 +38,5 @@ builder.Services.AddMassTransit(config =>
 builder.Services.AddScoped<NotificationConsumer>();
 
 var host = builder.Build();
+host.MapGet("/", () => "Hello World!");
 host.Run();
