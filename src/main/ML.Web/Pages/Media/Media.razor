@@ -580,15 +580,14 @@
                         }
                     </div>
 
-                    <!-- Bottom: action buttons -->
                     <div class="image-viewer-actions">
                         @if (!isViewingFromHistory)
                         {
-                            <button class="action-button save-button" @onclick="() => SaveToHistory(null, currentImage.Id, SearchTypeEnum.Image)">
+                            <button class="action-button save-button" @onclick="() => SaveToHistory(null, currentImage?.Id ?? string.Empty, SearchTypeEnum.Image)">
                                 <i class="bi bi-bookmark-plus"></i> Save to History
                             </button>
                         }
-                        <button class="action-button download-button" @onclick="() => DownloadMedia(null, currentImage.Url, currentImage.Title, currentImage.FileType ?? GetImageFileType(currentImage.Url))">
+                        <button class="action-button download-button" @onclick="() => DownloadMedia(null, currentImage?.Url ?? string.Empty, currentImage?.Title ?? string.Empty, currentImage?.FileType ?? GetImageFileType(currentImage?.Url ?? string.Empty))">
                             <i class="bi bi-download"></i> Download
                         </button>
                     </div>
@@ -646,12 +645,12 @@
         var uri = NavManager.ToAbsoluteUri(NavManager.Uri);
         if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("q", out var queryValue))
         {
-            searchQuery = queryValue.First();
+            searchQuery = queryValue.First() ?? string.Empty;
             await PerformSearch();
         }
         else if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("tab", out var tabValue))
         {
-            activeTab = tabValue.First();
+            activeTab = tabValue.First() ?? string.Empty;
             if (activeTab == "history")
             {
                 await FetchSearchHistory();

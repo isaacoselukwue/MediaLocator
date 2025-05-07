@@ -1,6 +1,9 @@
+using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ML.Api.Filters;
@@ -37,7 +40,13 @@ builder.Services.AddOpenApi(options =>
     options.AddDocumentTransformer<OpenApiFilter>();
 });
 
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connectionString: builder.Configuration.GetConnectionString("DefaultConnection")!, name: "postgres",
+        failureStatus: HealthStatus.Degraded, tags: ["db", "postgres", "data"])
+    .AddUrlGroup(new Uri(builder.Configuration["OpenTelemetry:HealthUrl"]!), name: "jaeger-ui", failureStatus: HealthStatus.Degraded,
+        tags: ["tracing", "jaeger"])
+    .AddUrlGroup(new Uri($"{builder.Configuration["OpenVerseSettings:BaseUrl"]}/v1/audio/?q=test"), name: "open-api-provider",
+        failureStatus: HealthStatus.Degraded,tags: ["media", "image", "audio", "open"]);
 
 builder.Services.AddTransient<ICurrentUser, CurrentUser>();
 builder.Services.AddApiVersioning(x =>
@@ -121,12 +130,12 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
 
 
 bool seedDatabase = builder.Configuration.GetValue<bool>("SeedDatabase");
-string baseUrl = builder.Configuration["FEBaseUrl"]!;
+string[] baseUrls = builder.Configuration.GetSection("FEBaseUrl").Get<string[]>()!;
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorApp", policy =>
     {
-        policy.WithOrigins(baseUrl)
+        policy.WithOrigins(baseUrls)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -166,7 +175,28 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.UseHealthChecks("/health");
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => true,
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+app.MapHealthChecks("/health/db", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("db"),
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
 
 
 app.Run();

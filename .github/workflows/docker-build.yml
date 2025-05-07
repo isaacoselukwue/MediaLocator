@@ -1,0 +1,93 @@
+name: Docker Build
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+
+jobs:
+  build-docker-images:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Build API Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: src/main/ML.Api/Dockerfile
+        push: false
+        tags: medialocator/api:${{ github.sha }},medialocator/api:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build Web Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: src/main/ML.Web/Dockerfile
+        push: false
+        tags: medialocator/web:${{ github.sha }},medialocator/web:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          API_BASE_URL=http://api/
+    
+    - name: Build Service Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: src/main/ML.Service/Dockerfile
+        push: false
+        tags: medialocator/service:${{ github.sha }},medialocator/service:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build Functional Tests Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: src/tests/ML.Application.FunctionalTests/Dockerfile
+        push: false
+        tags: medialocator/functional-tests:${{ github.sha }},medialocator/functional-tests:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Run Docker Compose
+      run: |
+        cat > docker/.env << EOF
+        POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+        POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+        POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+        POSTGRES_CONNECTION_STRING=${{ secrets.POSTGRES_CONNECTION_STRING }}
+        REDIS_CONNECTION_STRING=${{ secrets.REDIS_CONNECTION_STRING }}
+        JWT_SECRET=${{ secrets.JWT_SECRET }}
+        RABBITMQ_HOST=${{ secrets.RABBITMQ_HOST }}
+        RABBITMQ_USER=${{ secrets.RABBITMQ_USER }}
+        RABBITMQ_PASSWORD=${{ secrets.RABBITMQ_PASSWORD }}
+        OPENVERSE_CLIENT_ID=${{ secrets.OPENVERSE_CLIENT_ID }}
+        OPENVERSE_CLIENT_SECRET=${{ secrets.OPENVERSE_CLIENT_SECRET }}
+        MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
+        MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+        EOF
+        
+        docker compose -f docker/docker-compose.yml build
+        
+        docker compose -f docker/docker-compose.yml up -d postgres rabbitmq jaeger
+        
+        sleep 20
+        
+        docker compose -f docker/docker-compose.yml up -d worker
+        
+        docker compose -f docker/docker-compose.yml up --exit-code-from functional-tests functional-tests
+        
+        TEST_EXIT_CODE=$?
+        
+        docker compose -f docker/docker-compose.yml down
+        
+        exit $TEST_EXIT_CODE

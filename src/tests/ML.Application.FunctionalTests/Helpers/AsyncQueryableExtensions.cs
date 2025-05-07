@@ -46,7 +46,7 @@ public static class AsyncQueryableExtensions
 
             return (TResult)typeof(Task).GetMethod(nameof(Task.FromResult))!
                 .MakeGenericMethod(resultType)
-                .Invoke(null, new[] { executionResult })!;
+                .Invoke(null, [executionResult])!;
         }
     }
 
@@ -74,18 +74,13 @@ public static class AsyncQueryableExtensions
         IQueryProvider IQueryable.Provider => _provider;
     }
 
-    private class TestAsyncEnumerator<T> : IAsyncEnumerator<T>
+    private class TestAsyncEnumerator<T>(IEnumerator<T> inner) : IAsyncEnumerator<T>
     {
-        private readonly IEnumerator<T> _inner;
-
-        public TestAsyncEnumerator(IEnumerator<T> inner)
-        {
-            _inner = inner;
-        }
+        private readonly IEnumerator<T> _inner = inner;
 
         public T Current => _inner.Current;
 
-        public ValueTask<bool> MoveNextAsync() => new ValueTask<bool>(_inner.MoveNext());
+        public ValueTask<bool> MoveNextAsync() => new(_inner.MoveNext());
 
         public ValueTask DisposeAsync()
         {

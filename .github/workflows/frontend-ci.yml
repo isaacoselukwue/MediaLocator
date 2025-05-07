@@ -1,0 +1,99 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [ '**' ]
+    paths:
+      - 'src/main/ML.Web/**'
+      - 'src/tests/ML.AcceptanceTests/**'
+  pull_request:
+    branches: [ '**' ]
+    paths:
+      - 'src/main/ML.Web/**'
+      - 'src/tests/ML.AcceptanceTests/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 9.0.x
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build Web Project
+      run: dotnet build src/main/ML.Web/ML.Web.csproj --configuration Release
+    
+    - name: Publish Web Project
+      run: dotnet publish src/main/ML.Web/ML.Web.csproj --configuration Release --output ./publish
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+      
+    - name: Create rewrite rule for SPA routing
+      run: |
+        cat > publish/wwwroot/404.html <<EOL
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta http-equiv="refresh" content="0;URL='/'" />
+          </head>
+          <body></body>
+        </html>
+        EOL
+    
+    - name: Install and start http-server
+      run: |
+        npm install -g http-server
+        cd publish/wwwroot
+        http-server -p 7275 --proxy http://localhost:7275? &
+        echo "Web server started on port 7275"
+        # Wait for server to start
+        sleep 10
+        
+        # Verify server is responding
+        curl -I http://localhost:7275/
+        
+    - name: Update test configuration
+      run: |
+        cat > src/tests/ML.AcceptanceTests/appsettings.json <<EOL
+        {
+          "BaseUrl": "http://localhost:7275"
+        }
+        EOL
+    
+    - name: Build Test Project
+      run: dotnet build src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release
+    
+    - name: Install Playwright browsers
+      run: |
+        dotnet tool install --global Microsoft.Playwright.CLI
+        cd src/tests/ML.AcceptanceTests
+        playwright install --with-deps chromium
+    
+    - name: Run Acceptance Tests
+      run: dotnet test src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release --no-build
+      env:
+        DEBUG: pw:api
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: frontend-test-results
+        path: TestResults/
+    
+    - name: Upload Playwright report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-report
+        path: playwright-report/

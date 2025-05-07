@@ -6,7 +6,7 @@ using ML.Domain.Enums;
 
 namespace ML.Api.Filters;
 
-public class OpenApiFilter : IOpenApiDocumentTransformer
+public class OpenApiFilter(IConfiguration configuration) : IOpenApiDocumentTransformer
 {
     public Task TransformAsync(OpenApiDocument document, OpenApiDocumentTransformerContext context, CancellationToken cancellationToken)
     {
@@ -21,6 +21,10 @@ public class OpenApiFilter : IOpenApiDocumentTransformer
                 Email = "29353479@students.lincoln.ac.uk"
             }
         };
+        document.Servers =
+        [
+            new OpenApiServer { Url = configuration["OpenApi:ServerUrl"]! }
+        ];
 
         string xmlPath = Path.Combine(AppContext.BaseDirectory, $"{Assembly.GetExecutingAssembly().GetName().Name}.xml");
         XDocument? xmlDoc = null;

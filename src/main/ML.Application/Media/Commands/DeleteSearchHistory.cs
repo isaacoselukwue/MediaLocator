@@ -17,7 +17,7 @@ public class DeleteSearchHistoryValidator : AbstractValidator<DeleteSearchHistor
     }
 }
 
-internal class DeleteSearchHistoryCommandHandler(ISearchService searchService) : IRequestHandler<DeleteSearchHistoryCommand, Result>
+public class DeleteSearchHistoryCommandHandler(ISearchService searchService) : IRequestHandler<DeleteSearchHistoryCommand, Result>
 {
     public async Task<Result> Handle(DeleteSearchHistoryCommand request, CancellationToken cancellationToken)
     {
