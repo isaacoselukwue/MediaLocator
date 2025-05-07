@@ -54,6 +54,20 @@ jobs:
     
     - name: Build
       run: dotnet build --no-restore --configuration Release
+
+    - name: Run dotnet format (code style & lint)
+      run: dotnet format --verify-no-changes --severity warn
+
+    - name: Run CodeQL static analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: csharp
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v4
     
     - name: Run Application.FunctionalTests
       run: dotnet test src/tests/ML.Application.FunctionalTests/ML.Application.FunctionalTests.csproj --no-build --configuration Release --verbosity normal
