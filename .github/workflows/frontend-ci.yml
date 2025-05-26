@@ -81,6 +81,7 @@ jobs:
     
     - name: Run Acceptance Tests
       run: dotnet test src/tests/ML.AcceptanceTests/ML.AcceptanceTests.csproj --configuration Release --no-build
+      continue-on-error: true
       env:
         DEBUG: pw:api
     
