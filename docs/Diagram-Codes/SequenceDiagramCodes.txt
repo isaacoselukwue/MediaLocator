@@ -1,0 +1,414 @@
+Sequence Diagrams for MediaLocator Use Cases
+
+Authentication Use Cases
+
+Sign Up
+
+
+@startuml SignUp
+actor "Anonymous User" as User
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+participant "Email Service" as EmailService
+database "Database" as DB
+
+User -> UI: Enter registration details
+UI -> API: POST /api/auth/signup
+API -> IdentityService: SignUpUserAsync()
+IdentityService -> DB: Create new user (Pending status)
+IdentityService -> IdentityService: Generate verification token
+IdentityService -> EmailService: Send verification email
+EmailService --> User: Email with verification link
+IdentityService --> API: Return UserId and token
+API --> UI: Return success message
+UI --> User: Display success message with instructions
+@enduml
+
+
+Log In
+
+
+@startuml LogIn
+actor "Anonymous User" as User
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+participant "JWT Service" as JwtService
+database "Database" as DB
+
+User -> UI: Enter login credentials
+UI -> API: POST /api/auth/login
+API -> IdentityService: LoginUserAsync()
+IdentityService -> DB: Verify credentials
+IdentityService -> DB: Update LastLoginDate
+IdentityService -> JwtService: GenerateTokenAsync()
+JwtService --> IdentityService: Return tokens
+IdentityService --> API: Return tokens
+API --> UI: Return tokens and user info
+UI -> UI: Store tokens in local storage
+UI --> User: Redirect to dashboard
+@enduml
+
+
+Verify Account
+
+
+@startuml VerifyAccount
+actor "Anonymous User" as User
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+participant "Email Service" as EmailService
+database "Database" as DB
+
+User -> UI: Click verification link from email
+UI -> API: POST /api/auth/verify-account
+API -> IdentityService: ValidateSignupAsync()
+IdentityService -> DB: Verify token
+IdentityService -> DB: Update user status to Active
+IdentityService -> EmailService: Send welcome email
+IdentityService --> API: Return success
+API --> UI: Return success message
+UI --> User: Display success message
+@enduml
+
+
+Request Password Reset
+
+
+@startuml RequestPasswordReset
+actor "User" as User
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+participant "Email Service" as EmailService
+database "Database" as DB
+
+User -> UI: Enter email address
+UI -> API: POST /api/account/password-reset-request
+API -> IdentityService: InitiateForgotPasswordAsync()
+IdentityService -> DB: Verify email exists
+IdentityService -> IdentityService: Generate reset token
+IdentityService -> EmailService: Send password reset email
+EmailService --> User: Email with reset link
+IdentityService --> API: Return success
+API --> UI: Return success message
+UI --> User: Display instructions
+@enduml
+
+
+Reset Password
+
+
+@startuml ResetPassword
+actor "User" as User
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+database "Database" as DB
+
+User -> UI: Enter new password
+UI -> API: POST /api/account/reset-password
+API -> IdentityService: ResetPasswordAsync()
+IdentityService -> DB: Verify token
+IdentityService -> DB: Update password
+IdentityService -> DB: Save password history
+IdentityService --> API: Return success
+API --> UI: Return success message
+UI --> User: Display success message
+UI --> User: Redirect to login page
+@enduml
+
+
+## Account Management Use Cases
+
+Change Password
+
+
+@startuml ChangePassword
+actor "Authenticated User" as User
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+database "Database" as DB
+
+User -> UI: Enter current and new password
+UI -> API: POST /api/account/change-password
+API -> IdentityService: ChangePasswordAsync()
+IdentityService -> DB: Verify current password
+IdentityService -> DB: Check password history
+IdentityService -> DB: Update password
+IdentityService -> DB: Save to password history
+IdentityService --> API: Return success
+API --> UI: Return success message
+UI --> User: Display success message
+@enduml
+
+
+Deactivate Own Account
+
+
+@startuml DeactivateOwnAccount
+actor "Authenticated User" as User
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+database "Database" as DB
+
+User -> UI: Confirm account deactivation
+UI -> API: POST /api/account/deactivate
+API -> IdentityService: DeactivateAccountAsync()
+IdentityService -> DB: Update user status to Inactive
+IdentityService --> API: Return success
+API --> UI: Return success message
+UI -> UI: Clear local storage
+UI --> User: Display success message
+UI --> User: Redirect to login page
+@enduml
+
+
+View Profile
+
+
+@startuml ViewProfile
+actor "Authenticated User" as User
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+database "Database" as DB
+
+User -> UI: Navigate to profile page
+UI -> API: GET /api/account/profile
+API -> IdentityService: GetUserProfileAsync()
+IdentityService -> DB: Retrieve user data
+IdentityService --> API: Return user profile
+API --> UI: Return profile data
+UI --> User: Display profile information
+@enduml
+
+
+## Media Search Use Cases
+
+Search Media
+
+
+@startuml SearchMedia
+actor "Authenticated User" as User
+participant "Web UI" as UI
+participant "API" as API
+participant "OpenVerse Service" as OpenVerseService
+database "Database" as DB
+
+User -> UI: Enter search query and options
+UI -> API: GET /api/search/images or /api/search/audio
+API -> OpenVerseService: SearchImagesAsync() or SearchAudioAsync()
+OpenVerseService --> API: Return search results
+API -> DB: Save search query
+API --> UI: Return search results
+UI --> User: Display search results
+@enduml
+
+
+View Search Results
+
+
+@startuml ViewSearchResults
+actor "Authenticated User" as User
+participant "Web UI" as UI
+participant "API" as API
+participant "OpenVerse Service" as OpenVerseService
+
+User -> UI: View search results page
+User -> UI: Navigate to next/previous page
+UI -> API: GET /api/search/images or /api/search/audio with pagination
+API -> OpenVerseService: SearchImagesAsync() or SearchAudioAsync() with pagination
+OpenVerseService --> API: Return paginated results
+API --> UI: Return paginated results
+UI --> User: Display paginated search results
+@enduml
+
+
+Save Media
+
+
+@startuml SaveMedia
+actor "Authenticated User" as User
+participant "Web UI" as UI
+participant "API" as API
+participant "Search Service" as SearchService
+database "Database" as DB
+
+User -> UI: Click save button on media item
+UI -> API: POST /api/search/save
+API -> SearchService: AddSearchHistoryAsync()
+SearchService -> DB: Save media details to search history
+SearchService --> API: Return success
+API --> UI: Return confirmation
+UI --> User: Display confirmation message
+@enduml
+
+
+View Own Search History
+
+
+@startuml ViewOwnSearchHistory
+actor "Authenticated User" as User
+participant "Web UI" as UI
+participant "API" as API
+participant "Search Service" as SearchService
+database "Database" as DB
+
+User -> UI: Navigate to search history
+UI -> API: GET /api/search/history
+API -> SearchService: GetUserSearchHistoryAsync()
+SearchService -> DB: Retrieve user's search history
+SearchService --> API: Return paginated search history
+API --> UI: Return search history
+UI --> User: Display search history
+@enduml
+
+
+## User Management Use Cases
+
+View All Users
+
+
+@startuml ViewAllUsers
+actor "Administrator" as Admin
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+database "Database" as DB
+
+Admin -> UI: Navigate to user management
+UI -> API: GET /api/account/users
+API -> IdentityService: GetUsersAsync()
+IdentityService -> DB: Retrieve all users
+IdentityService --> API: Return paginated users list
+API --> UI: Return users data
+UI --> Admin: Display users list
+@enduml
+
+
+Change User Role
+
+
+@startuml ChangeUserRole
+actor "Administrator" as Admin
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+database "Database" as DB
+
+Admin -> UI: Select user and new role
+UI -> API: POST /api/account/change-role
+API -> IdentityService: ChangeUserRoleAsync()
+IdentityService -> DB: Update user role
+IdentityService --> API: Return success
+API --> UI: Return confirmation
+UI --> Admin: Display confirmation message
+@enduml
+
+
+Activate User
+
+
+@startuml ActivateUser
+actor "Administrator" as Admin
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+participant "Email Service" as EmailService
+database "Database" as DB
+
+Admin -> UI: Select inactive user and activate
+UI -> API: POST /api/account/activate
+API -> IdentityService: ActivateAccountAsync()
+IdentityService -> DB: Update user status to Active
+IdentityService -> EmailService: Send activation notification
+IdentityService --> API: Return success
+API --> UI: Return confirmation
+UI --> Admin: Display confirmation message
+@enduml
+
+
+Deactivate User
+
+
+@startuml DeactivateUser
+actor "Administrator" as Admin
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+database "Database" as DB
+
+Admin -> UI: Select active user and deactivate
+UI -> API: POST /api/account/deactivate/{userId}
+API -> IdentityService: DeactivateAccountAsync()
+IdentityService -> DB: Update user status to Inactive
+IdentityService --> API: Return success
+API --> UI: Return confirmation
+UI --> Admin: Display confirmation message
+@enduml
+
+
+Delete User
+
+
+@startuml DeleteUser
+actor "Administrator" as Admin
+participant "Web UI" as UI
+participant "API" as API
+participant "Identity Service" as IdentityService
+database "Database" as DB
+
+Admin -> UI: Select user and delete
+UI -> API: DELETE /api/account/delete
+API -> IdentityService: DeleteUserAsync()
+IdentityService -> IdentityService: DeactivateAccountAsync() 
+IdentityService -> DB: Update user status to Deleted
+IdentityService --> API: Return success
+API --> UI: Return confirmation
+UI --> Admin: Display confirmation message
+@enduml
+
+
+View User Search History
+
+
+@startuml ViewUserSearchHistory
+actor "Administrator" as Admin
+participant "Web UI" as UI
+participant "API" as API
+participant "Search Service" as SearchService
+database "Database" as DB
+
+Admin -> UI: Select user to view search history
+UI -> API: GET /api/search/history/{userId}
+API -> SearchService: GetAllUsersSearchHistoryAsync()
+SearchService -> DB: Retrieve selected user's search history
+SearchService --> API: Return paginated search history
+API --> UI: Return search history data
+UI --> Admin: Display user's search history
+@enduml
+
+
+View All Search History
+
+
+@startuml ViewAllSearchHistory
+actor "Administrator" as Admin
+participant "Web UI" as UI
+participant "API" as API
+participant "Search Service" as SearchService
+database "Database" as DB
+
+Admin -> UI: Navigate to all search history
+UI -> API: GET /api/search/all-history
+API -> SearchService: GetAllUsersSearchHistoryAsync()
+SearchService -> DB: Retrieve all search history
+SearchService --> API: Return paginated search history
+API --> UI: Return search history data
+UI --> Admin: Display all search history
+@enduml

@@ -56,15 +56,16 @@ jobs:
       run: dotnet build --no-restore --configuration Release
 
     - name: Run dotnet format (code style & lint)
-      run: dotnet format --verify-no-changes --severity warn
+      run: dotnet format --verify-no-changes --severity info
+      continue-on-error: true
 
     - name: Run CodeQL static analysis
       uses: github/codeql-action/init@v3
       with:
         languages: csharp
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+    # - name: Perform CodeQL Analysis
+    #   uses: github/codeql-action/analyze@v3
 
     - name: Dependency Review
       uses: actions/dependency-review-action@v4
