@@ -1,0 +1,77 @@
+@startuml MediaLocator Use Case Diagram
+
+' Actors
+actor "Anonymous User" as Anonymous
+actor "Authenticated User" as User
+actor "Administrator" as Admin
+
+' Actor inheritance
+User <|-- Admin
+
+' Authentication use cases
+rectangle Authentication {
+  usecase "Sign Up" as SignUp
+  usecase "Log In" as Login
+  usecase "Verify Account" as VerifyAccount
+  usecase "Request Password Reset" as RequestPasswordReset
+  usecase "Reset Password" as ResetPassword
+}
+
+' Account management use cases
+rectangle "Account Management" {
+  usecase "Change Password" as ChangePassword
+  usecase "Deactivate Own Account" as DeactivateOwnAccount
+  usecase "View Profile" as ViewProfile
+}
+
+' Media search use cases
+rectangle "Media Search" {
+  usecase "Search Media" as SearchMedia
+  usecase "View Search Results" as ViewSearchResults
+  usecase "Save Media" as SaveMedia
+  usecase "View Own Search History" as ViewOwnSearchHistory
+}
+
+' Admin use cases
+rectangle "User Management" {
+  usecase "View All Users" as ViewUsers
+  usecase "Change User Role" as ChangeUserRole
+  usecase "Activate User" as ActivateUser
+  usecase "Deactivate User" as DeactivateUser
+  usecase "Delete User" as DeleteUser
+  usecase "View User Search History" as ViewUserSearchHistory
+  usecase "View All Search History" as ViewAllSearchHistory
+}
+
+' Anonymous User associations
+Anonymous --> SignUp
+Anonymous --> Login
+Anonymous --> VerifyAccount
+Anonymous --> RequestPasswordReset
+Anonymous --> ResetPassword
+
+' User associations
+User --> ViewProfile
+User --> ChangePassword
+User --> DeactivateOwnAccount
+User --> SearchMedia
+User --> ViewSearchResults
+User --> SaveMedia
+User --> ViewOwnSearchHistory
+User --> RequestPasswordReset
+
+' Admin associations
+Admin --> ViewUsers
+Admin --> ChangeUserRole
+Admin --> ActivateUser
+Admin --> DeactivateUser
+Admin --> DeleteUser
+Admin --> ViewUserSearchHistory
+Admin --> ViewAllSearchHistory
+
+' Include/extend relationships
+ViewUserSearchHistory ..> ViewOwnSearchHistory : extends
+ViewAllSearchHistory ..> ViewUserSearchHistory : extends
+DeleteUser ..> DeactivateUser : includes
+
+@enduml

@@ -1,0 +1,624 @@
+@startuml MediaLocator Complete Class Diagram
+
+' =========================================
+' Enums
+' =========================================
+enum StatusEnum {
+  Pending = 0
+  Active = 1
+  Deleted = 2
+  InActive = 3
+}
+
+enum NotificationTypeEnum {
+  SignUpAccountActivation
+  SignUpCompleted
+  SignUpFailure
+  SignInSuccess
+  SignInBlockedAccount
+  DeleteAccountSuccess
+  DeactivateAccountSuccess
+  ChangeRoleSuccess
+  ChangePasswordSuccess
+  AccountActivationAdmin
+  PasswordResetInitiation
+  PasswordResetSuccess
+}
+
+enum SearchTypeEnum {
+  Image
+  Audio
+}
+
+enum OpenLicenseEnum {
+  By
+  ByNc
+  ByNcNd
+  ByNcSa
+  ByNd
+  BySa
+  Cc0
+  Pdm
+  NcSamplingPlus
+  SamplingPlus
+}
+
+enum OpenLicenseTypeEnum {
+  All
+  Commercial
+  Modification
+  AllCc
+}
+
+enum OpenAudioCategoryEnum {
+  Audiobook
+  Music
+  News
+  Podcast
+  Pronunciation
+  SoundEffect
+}
+
+enum OpenImageCategoryEnum {
+  DigitalisedArtwork
+  Illustration
+  Photograph
+}
+
+' =========================================
+' Configuration Models & Settings
+' =========================================
+class JwtSettings {
+  + string Secret
+  + int TokenExpirationInMinutes
+  + int RefreshTokenExpirationInDays
+}
+
+class MailSettings {
+  + string DisplayName
+  + string From
+  + string UserName
+  + string Password
+  + string Host
+  + int Port
+  + bool UseAuthentication
+  + bool UseSSL
+  + bool UseStartTls
+  + string BaseUrl
+}
+
+class RabbitMqSettings {
+  + string Host
+  + string Username
+  + string Password
+}
+
+class OpenVerseSettings {
+  + string ClientId
+  + string ClientSecret
+  + string GrantType
+  + string BaseUrl
+}
+
+' =========================================
+' Base Classes & Interfaces
+' =========================================
+abstract class BaseEvent {
+  + INotification Interface
+}
+
+abstract class BaseEntity<T> {
+  + T Id
+}
+
+abstract class BaseAuditableEntity {
+  + DateTimeOffset Created
+  + string CreatedBy
+  + DateTimeOffset LastModified
+  + string LastModifiedBy
+}
+
+interface ICurrentUser {
+  + Guid UserId
+  + string Email
+  + string UserName
+  + bool IsAuthenticated
+  + bool IsInRole(string role)
+}
+
+interface IMLDbContext {
+  + DbSet<PasswordHistories> PasswordHistories
+  + DbSet<UserRoles> Roles
+  + DbSet<SearchHistories> SearchHistories
+  + DbSet<IdentityUserRole<Guid>> UserRoles
+  + DbSet<Users> Users
+  + Task<int> SaveChangesAsync(CancellationToken)
+}
+
+interface IIdentityService {
+  + Task<(Result, string token)> SignUpUserAsync(string email, string password, string firstName, string lastName, string phoneNumber)
+  + Task<(Result, string email)> ValidateSignupAsync(string userId, string activationToken)
+  + Task<(Result, AccessTokenResponse tokens)> LoginUserAsync(string email, string password)
+  + Task<(Result, PaginatedList<UserAccountDto>)> GetUsersAsync(int page, int size, string search, StatusEnum? status)
+  + Task<(Result, string email)> ChangePasswordAsync(string newPassword)
+  + Task<(Result, string usersEmail)> DeleteUserAsync(string userId, bool isPermanant)
+  + Task<(Result, string usersEmail)> DeactivateAccountAsync()
+  + Task<(Result, string usersEmail)> DeactivateAccountAsync(Guid userId)
+  + Task<(Result, string email)> ActivateAccountAsync(Guid userId)
+  + Task<(Result, string email)> ChangeUserRoleAsync(string userId, string role)
+  + Task<(Result result, string emailAddress)> InitiateForgotPasswordAsync(string emailAddress)
+  + Task<(Result result, string emailAddress)> ResetPasswordAsync(string userId, string token, string newPassword)
+}
+
+interface IJwtService {
+  + Task<AccessTokenResponse> GenerateTokenAsync(Users user)
+  + Task<AccessTokenResponse> RefreshTokenAsync(string encryptedRefreshToken)
+  + Task RevokeTokenAsync(string encryptedRefreshToken)
+}
+
+interface IOpenVerseService {
+  + Task<string> GetAuthToken(CancellationToken cancellationToken)
+  + Task<RateLimitResponse> GetRateLimitAsync(CancellationToken cancellationToken)
+  + Task<AudioSearchResponse> SearchAudioAsync(string query, CancellationToken cancellationToken, string license, string licenseType, string categories, int pageSize, int page)
+  + Task<AudioResult?> GetAudioDetailAsync(string audioId, CancellationToken cancellationToken)
+  + Task<ImageSearchResponse> SearchImagesAsync(string query, CancellationToken cancellationToken, string license, string licenseType, string categories, int pageSize, int page)
+  + Task<ImageResult?> GetImageDetailAsync(string imageId, CancellationToken cancellationToken)
+}
+
+interface IEmailService {
+  + Task SendEmail(NotificationEvent notification, CancellationToken cancellationToken)
+}
+
+interface IPublisher {
+  + Task Publish<T>(T notification, CancellationToken cancellationToken) where T : INotification
+}
+
+interface ISearchService {
+  + Task<Result<string>> AddSearchHistoryAsync(SearchHistoryDto searchHistory)
+  + Task<Result<PaginatedList<SearchHistoryDto>>> GetUserSearchHistoryAsync(int page, int size)
+  + Task<Result<PaginatedList<SearchHistoryDto>>> GetAllUsersSearchHistoryAsync(int page, int size, string? userId)
+}
+
+interface IAuthenticationService {
+  + Task<bool> Login(string email, string password)
+  + Task Logout()
+  + Task<bool> RefreshToken()
+  + Task<bool> SignUp(string emailAddress, string password, string confirmPassword, string firstName, string lastName, string phoneNumber)
+}
+
+interface IMediaLocatorHttpClient {
+  + Task<T> GetAsync<T>(string endpoint)
+  + Task<TResponse> PostAsync<TResponse, TRequest>(string endpoint, TRequest data)
+  + Task<TResponse> PutAsync<TResponse, TRequest>(string endpoint, TRequest data)
+  + Task<TResponse> DeleteAsync<TResponse, TRequest>(string endpoint, TRequest data)
+}
+
+' =========================================
+' Domain Entities
+' =========================================
+class Users extends "IdentityUser<Guid>" {
+  + string FirstName
+  + string LastName
+  + StatusEnum UsersStatus
+  + DateTimeOffset? LastLoginDate
+  + DateTimeOffset Created
+  + string CreatedBy
+  + DateTimeOffset LastModified
+  + string LastModifiedBy
+}
+
+class UserRoles extends "IdentityRole<Guid>" {
+  + DateTimeOffset Created
+  + string CreatedBy
+  + DateTimeOffset LastModified
+  + string LastModifiedBy
+  + StatusEnum UserRoleStatus
+}
+
+class PasswordHistories extends BaseAuditableEntity {
+  + Guid UserId
+  + Users User
+  + string PasswordHash
+}
+
+class SearchHistories extends BaseAuditableEntity {
+  + Guid UserId
+  + Users User
+  + string SearchId
+  + SearchTypeEnum SearchType
+  + string Title
+  + string Url
+  + string Creator
+  + string License
+  + string Provider
+  + string Attribution
+  + string RelatedUrl
+  + DateTime? IndexedOn
+  + string ForeignLandingUrl
+  + string CreatorUrl
+  + string LicenseVersion
+  + string LicenseUrl
+  + string Source
+  + string Category
+  + string Genres
+  + int? FileSize
+  + string FileType
+  + string ThumbNail
+  + StatusEnum Status
+}
+
+class NotificationEvent extends BaseEvent {
+  + string Receiver
+  + string Subject
+  + Dictionary<string,string> Replacements
+  + NotificationTypeEnum NotificationType
+  + NotificationEvent(string receiver, string subject, NotificationTypeEnum type, Dictionary<string,string> replacements)
+}
+
+' =========================================
+' Application Models & DTOs
+' =========================================
+class Result {
+  + bool Succeeded
+  + string Message
+  + string[] Errors
+  + Success(string message)
+  + Failure(string message, IEnumerable<string> errors)
+}
+
+class "Result<T>" extends Result {
+  + T Data
+  + Success(string message, T data)
+  + Failure(string message, IEnumerable<string> errors)
+}
+
+class PaginatedList<T> {
+  + int PageNumber
+  + int TotalPages
+  + int TotalCount
+  + List<T> Items
+  + bool HasPreviousPage
+  + bool HasNextPage
+}
+
+class AccessTokenResponse {
+  + string Token
+  + string RefreshToken
+  + DateTime TokenExpiration
+}
+
+class UserAccountDto {
+  + string Id
+  + string Email
+  + string UserName
+  + string FirstName
+  + string LastName
+  + string PhoneNumber
+  + string Status
+  + string Role
+  + DateTime Created
+}
+
+class SearchHistoryDto {
+  + string Id
+  + string UserId
+  + string UserEmail
+  + string SearchId
+  + string SearchType
+  + string Title
+  + string Url
+  + string Creator
+  + string License
+  + string Category
+  + DateTime SearchDate
+}
+
+class AudioResult {
+  + string Id
+  + string Title
+  + string AudioUrl
+  + string Creator
+  + string License
+  + string LicenseUrl
+  + string Duration
+  + string WaveformUrl
+  + string Category
+  + string[] Genres
+}
+
+class ImageResult {
+  + string Id
+  + string Title
+  + string ImageUrl
+  + string Creator
+  + string License
+  + string LicenseUrl
+  + int Width
+  + int Height
+  + string Category
+  + string Source
+}
+
+class AudioSearchResponse {
+  + int Count
+  + string Next
+  + string Previous
+  + List<AudioResult> Results
+}
+
+class ImageSearchResponse {
+  + int Count
+  + string Next
+  + string Previous
+  + List<ImageResult> Results
+}
+
+class RateLimitResponse {
+  + int Used
+  + int Remaining
+  + int Reset
+}
+
+class TokenResponse {
+  + string AccessToken
+  + int ExpiresIn
+  + string Scope
+  + string TokenType
+}
+
+class MediaParameters {
+  + List<string> Licenses
+  + OpenLicenseTypeEnum LicenseType
+  + List<string> Categories
+}
+
+' =========================================
+' Infrastructure Implementations
+' =========================================
+class MLDbContext extends "IdentityDbContext<Users, UserRoles, Guid>" implements IMLDbContext {
+  + DbSet<DataProtectionKey> DataProtectionKeys
+  + DbSet<PasswordHistories> PasswordHistories
+  + DbSet<SearchHistories> SearchHistories
+  + OnModelCreating(ModelBuilder)
+}
+
+class IdentityService implements IIdentityService {
+  - SignInManager<Users> _signInManager
+  - UserManager<Users> _userManager
+  - IJwtService _jwtService
+  - IMLDbContext _mlDbContext
+  + SignUpUserAsync(string email, string password, string firstName, string lastName, string phoneNumber)
+  + ValidateSignupAsync(string userId, string activationToken)
+  + LoginUserAsync(string email, string password)
+  + GetUsersAsync(int page, int size, string search, StatusEnum? status)
+  + ChangePasswordAsync(string newPassword)
+  + DeleteUserAsync(string userId, bool isPermanant)
+  + DeactivateAccountAsync()
+  + DeactivateAccountAsync(Guid userId)
+  + ActivateAccountAsync(Guid userId)
+  + ChangeUserRoleAsync(string userId, string role)
+  + InitiateForgotPasswordAsync(string emailAddress)
+  + ResetPasswordAsync(string userId, string token, string newPassword)
+  - LogPasswordChangeHistoryAsync(string userId, string passwordHash)
+}
+
+class JwtService implements IJwtService {
+  - IOptions<JwtSettings> _jwtSettings
+  - UserManager<Users> _userManager
+  - TimeProvider _timeProvider
+  + GenerateTokenAsync(Users user)
+  + RefreshTokenAsync(string encryptedRefreshToken)
+  + RevokeTokenAsync(string encryptedRefreshToken)
+  - CreateToken(List<Claim> claims, DateTime expires)
+  - GetSigningCredentials()
+  - GetEncryptedToken(string token)
+  - GetDecryptedToken(string encryptedToken)
+}
+
+class OpenVerseService implements IOpenVerseService {
+  - IHttpClientFactory _httpClientFactory
+  - ILogger<OpenVerseService> _logger
+  - HybridCache _hybridCache
+  - OpenVerseSettings _openVerseSettings
+  + GetAuthToken(CancellationToken cancellationToken)
+  + GetRateLimitAsync(CancellationToken cancellationToken)
+  + SearchAudioAsync(string query, CancellationToken cancellationToken, string license, string licenseType, string categories, int pageSize, int page)
+  + GetAudioDetailAsync(string audioId, CancellationToken cancellationToken)
+  + SearchImagesAsync(string query, CancellationToken cancellationToken, string license, string licenseType, string categories, int pageSize, int page)
+  + GetImageDetailAsync(string imageId, CancellationToken cancellationToken)
+  - InitialiseClient()
+  - GetJsonSerializerOptions()
+}
+
+class EmailService implements IEmailService {
+  - IOptions<MailSettings> _mailSettings
+  + SendEmail(NotificationEvent notification, CancellationToken cancellationToken)
+  - LoadAndReplaceTemplate(string templateName, Dictionary<string, string> replacements)
+}
+
+class SearchService implements ISearchService {
+  - IMLDbContext _dbContext
+  - ICurrentUser _currentUser
+  + AddSearchHistoryAsync(SearchHistoryDto searchHistory)
+  + GetUserSearchHistoryAsync(int page, int size)
+  + GetAllUsersSearchHistoryAsync(int page, int size, string? userId)
+}
+
+class MassTransitEventPublisher implements IPublisher {
+  - IBus _bus
+  + Publish<T>(T notification, CancellationToken cancellationToken)
+}
+
+class NotificationConsumer {
+  - IEmailService _emailService
+  - ILogger<NotificationConsumer> _logger
+  + Consume(ConsumeContext<NotificationEvent> context)
+}
+
+class AuthenticationService implements IAuthenticationService {
+  - IMediaLocatorHttpClient _httpClient
+  - ILocalStorageService _localStorage
+  - AuthenticationStateProvider _authStateProvider
+  + Login(string email, string password)
+  + Logout()
+  + RefreshToken()
+  + SignUp(string emailAddress, string password, string confirmPassword, string firstName, string lastName, string phoneNumber)
+  - StoreTokensAsync(AccessTokenResponse accessToken)
+}
+
+class MediaLocatorHttpClient implements IMediaLocatorHttpClient {
+  - HttpClient _httpClient
+  - JsonSerializerOptions _jsonOptions
+  - ILocalStorageService _localStorage
+  + GetAsync<T>(string endpoint)
+  + PostAsync<TResponse, TRequest>(string endpoint, TRequest data)
+  + PutAsync<TResponse, TRequest>(string endpoint, TRequest data)
+  + DeleteAsync<TResponse, TRequest>(string endpoint, TRequest data)
+  - SetAuthorizationHeader()
+}
+
+' =========================================
+' Controllers
+' =========================================
+class AuthenticationController {
+  - ISender _sender
+  + SignUp(SignupCommand command)
+  + Login(LoginCommand command)
+  + RefreshToken(RefreshTokenCommand command)
+  + Logout()
+  + VerifyAccount(VerifyAccountCommand command)
+}
+
+class AccountController {
+  - ISender _sender
+  + GetUsers(GetUsersQuery query)
+  + ChangePassword(ChangePasswordCommand command)
+  + DeactivateAccount()
+  + DeleteAccount(DeleteAccountCommand command)
+  + ActivateAccount(ActivateAccountCommand command)
+  + ChangeUserRole(ChangeUserRoleCommand command)
+  + PasswordResetInitial(InitiatePasswordResetCommand command)
+  + PasswordReset(PasswordResetCommand command)
+}
+
+class SearchController {
+  - ISender _sender
+  + SearchAudio(SearchAudioQuery query)
+  + GetAudioDetail(string id)
+  + SearchImages(SearchImagesQuery query)
+  + GetImageDetail(string id)
+  + GetUserSearchHistory(GetUserSearchHistoryQuery query)
+  + GetAllUsersSearchHistory(GetAllUsersSearchHistoryQuery query)
+}
+
+' =========================================
+' Command/Query Handlers
+' =========================================
+class SignupCommandHandler {
+  - IIdentityService _identityService
+  - IPublisher _publisher
+  + Handle(SignupCommand request, CancellationToken cancellationToken)
+}
+
+class LoginCommandHandler {
+  - IIdentityService _identityService
+  - IPublisher _publisher
+  + Handle(LoginCommand request, CancellationToken cancellationToken)
+}
+
+class SearchAudioCommandHandler {
+  - IOpenVerseService _openVerseService
+  - ISearchService _searchService
+  + Handle(SearchAudioCommand request, CancellationToken cancellationToken)
+}
+
+class SearchImagesCommandHandler {
+  - IOpenVerseService _openVerseService
+  - ISearchService _searchService
+  + Handle(SearchImagesCommand request, CancellationToken cancellationToken)
+}
+
+' =========================================
+' Relationships
+' =========================================
+BaseAuditableEntity -up-|> "BaseEntity<Guid>"
+NotificationEvent -up-|> BaseEvent
+
+SearchHistories -- StatusEnum
+SearchHistories -- SearchTypeEnum
+SearchHistories "many" --> "1" Users
+
+Users -- StatusEnum
+UserRoles -- StatusEnum
+
+PasswordHistories "many" --> "1" Users
+
+NotificationEvent -- NotificationTypeEnum
+
+' Service relationships
+IIdentityService -- Users
+IIdentityService -- UserRoles
+IIdentityService -- PasswordHistories
+IIdentityService -- IJwtService
+IJwtService -- Users
+IJwtService -- JwtSettings
+
+IOpenVerseService -- OpenVerseSettings
+IOpenVerseService -- AudioResult
+IOpenVerseService -- ImageResult
+IOpenVerseService -- AudioSearchResponse
+IOpenVerseService -- ImageSearchResponse
+IOpenVerseService -- RateLimitResponse
+IOpenVerseService -- TokenResponse
+
+IEmailService -- NotificationEvent
+IEmailService -- MailSettings
+
+ISearchService -- SearchHistories
+ISearchService -- SearchHistoryDto
+
+IMLDbContext -- Users
+IMLDbContext -- UserRoles
+IMLDbContext -- PasswordHistories
+IMLDbContext -- SearchHistories
+
+' Implementation relationships
+IdentityService ..|> IIdentityService
+JwtService ..|> IJwtService
+OpenVerseService ..|> IOpenVerseService
+EmailService ..|> IEmailService
+SearchService ..|> ISearchService
+MLDbContext ..|> IMLDbContext
+MassTransitEventPublisher ..|> IPublisher
+AuthenticationService ..|> IAuthenticationService
+MediaLocatorHttpClient ..|> IMediaLocatorHttpClient
+
+' Controller relationships
+AuthenticationController -- SignupCommandHandler
+AuthenticationController -- LoginCommandHandler
+AccountController -- IIdentityService
+SearchController -- SearchAudioCommandHandler
+SearchController -- SearchImagesCommandHandler
+SearchController -- ISearchService
+
+' Handler dependencies
+SignupCommandHandler -- IIdentityService
+SignupCommandHandler -- IPublisher
+SignupCommandHandler -- NotificationEvent
+LoginCommandHandler -- IIdentityService
+LoginCommandHandler -- IPublisher
+SearchAudioCommandHandler -- IOpenVerseService
+SearchAudioCommandHandler -- ISearchService
+SearchImagesCommandHandler -- IOpenVerseService
+SearchImagesCommandHandler -- ISearchService
+
+' Message queue relationships
+NotificationConsumer -- NotificationEvent
+NotificationConsumer -- IEmailService
+MassTransitEventPublisher -- NotificationEvent
+
+' Authentication web service
+AuthenticationService -- MediaLocatorHttpClient
+AuthenticationService -- AccessTokenResponse
+
+@enduml

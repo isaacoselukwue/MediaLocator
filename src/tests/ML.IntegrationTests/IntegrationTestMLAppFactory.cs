@@ -35,7 +35,7 @@ public class IntegrationTestWebAppFactory : WebApplicationFactory<Program>
                 services.Remove(descriptor);
             }
 
-            var pooledDescriptor = services.SingleOrDefault(s => s.ServiceType == typeof(DbContextPool<MLDbContext>));
+            var pooledDescriptor = services.SingleOrDefault(s => s.ServiceType == typeof(DbContextOptions<MLDbContext>));
 
             if (pooledDescriptor is not null)
             {
